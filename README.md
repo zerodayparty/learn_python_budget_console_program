@@ -30,20 +30,52 @@ python3 --version
 - `--version`은 설치된 버전을 출력하는 옵션이다.  
 - 3.10 이상이면 요구사항의 개발 환경을 만족한다.  
 
-현재 프로젝트 폴더로 이동한 뒤 전체 도움말을 확인한다.  
+현재 프로젝트 폴더로 이동한 뒤 프로그램을 실행하거나 전체 도움말을 확인한다.  
 
 ```bash
-cd /prj/learn_python_budget_console_program  
+# 1. 대화형 콘솔 모드 (진입하여 종료 전까지 메뉴 선택 및 연속 작업)  
+python3 -m budget_app  
+
+# 2. 전체 명령어 도움말 확인  
 python3 -m budget_app --help  
 ```
 
-- `cd` = Change Directory, 현재 작업 폴더를 변경한다.  
 - `-m` = module, 파일 경로 대신 `budget_app` 모듈을 실행한다.  
+- 인자 없이 `python3 -m budget_app`만 실행하면 **대화형 콘솔(메뉴 루프)**로 진입하여 번호를 누르며 연속으로 작업할 수 있다.  
 - `--help`는 사용할 수 있는 명령과 옵션을 출력한다.  
 
 <br><br>
 
-## 🟢 2. 저장 파일  
+## 🟢 2. 하이브리드(Hybrid) 실행 아키텍처  
+
+이 가계부 프로그램은 **사람(직접 작업)**과 **컴퓨터(자동화 스크립트)**를 모두 만족시키기 위해 **하이브리드(Hybrid, 복합형) 아키텍처**로 설계되었다.  
+
+### 🟡 1) 두 가지 실행 모드 비교표  
+
+| 비교 항목 | 1. 대화형 콘솔 모드 (Interactive REPL) | 2. 일회성 CLI 모드 (One-shot CLI) |
+| :--- | :--- | :--- |
+| **풀네임 (Full Name)** | Read-Eval-Print Loop (입력-평가-출력 루프) | Command Line Interface (명령줄 인터페이스) |
+| **실행 명령어** | `python3 -m budget_app` | `python3 -m budget_app <command> [options]` |
+| **동작 흐름** | 프로그램 진입 $\rightarrow$ 메뉴 루프 연속 작업 $\rightarrow$ `q`로 종료 | 단일 명령어 1회 실행 $\rightarrow$ 결과 출력 $\rightarrow$ 즉시 종료 |
+| **주요 사용자** | **사람 (직접 키보드를 두드리는 사용자)** | **컴퓨터 (자동화 스크립트, 크론잡, 파이프라인)** |
+| **장점** | 옵션을 외울 필요 없이 메뉴판 보고 직관적 작업 | 명령어 한 줄로 즉시 완료되며 다른 도구와 파이프(`\|`) 연결 가능 |
+| **실행 예시** | 메뉴 번호 `1` 입력 후 순차 대화형 질문에 응답 | `python3 -m budget_app list --limit 5` |
+
+<br>
+
+### 🟡 2) 거래 수정(`update`)의 하이브리드 지원  
+
+요구사항 4.6에 맞추어 거래 수정 역시 두 가지 방식을 모두 지원한다.  
+
+- **대화형 방식 (안 B, 기본 권장)**: `python3 -m budget_app update`  
+    - 거래 `id`를 묻고 기존 내역을 보여준 뒤, 변경할 항목만 새 값을 입력받는다.  
+    - **변경하지 않을 항목은 엔터(Enter)만 치면 기존 값이 그대로 안전하게 유지**된다.  
+- **옵션 방식 (안 A, 일회성)**: `python3 -m budget_app update --id TX-xxx --amount 20000`  
+    - 터미널 명령어 한 줄로 특정 필드만 즉시 원자적(Atomic)으로 변경한다.  
+
+<br><br>
+
+## 🟢 3. 저장 파일  
 
 기본 저장 폴더는 프로젝트 기준 `./data`다. 첫 명령 실행 때 폴더와 파일이 자동 생성된다.  
 
@@ -73,7 +105,7 @@ python3 -m budget_app --data-dir ./practice_data category list
 
 <br><br>
 
-## 🟢 3. 주요 명령  
+## 🟢 4. 주요 명령  
 
 ### 🟡 거래 추가  
 
@@ -112,19 +144,28 @@ python3 -m budget_app search --from 2026-08-01 --to 2026-08-31 --category food -
 
 ### 🟡 거래 수정  
 
-이 프로젝트의 `update`는 옵션 방식으로 고정했다. 전달한 필드만 바뀌고 나머지는 유지된다.  
+이 프로젝트의 `update`는 **대화형 기반(안 B, 권장)**과 **옵션 기반(안 A)**을 모두 지원하는 하이브리드 방식이다.  
+
+**1) 대화형 방식 (안 B, 권장):**  
+
+```bash
+python3 -m budget_app update  
+```
+
+- 수정할 거래 `id`를 묻고, 해당 거래의 현재 정보를 화면에 출력한다.  
+- 날짜, 타입, 카테고리, 금액, 메모, 태그의 새 값을 순서대로 입력받는다.  
+- **수정하지 않고 기존 값을 유지하려면 아무것도 입력하지 않고 엔터**를 누르면 된다.  
+
+**2) 옵션 방식 (안 A):**  
 
 ```bash
 python3 -m budget_app update --id TX-A1B2C3D4E5F6 --amount 18000 --memo "점심 가격 수정" --tags "meal,work"  
 ```
 
-사용 가능한 수정 옵션:  
-
-`--date`, `--type`, `--category`, `--amount`, `--memo`, `--tags`  
-
-- 하나 이상 반드시 입력한다.  
+- 사용 가능한 수정 옵션: `--date`, `--type`, `--category`, `--amount`, `--memo`, `--tags`  
+- 전달한 필드만 바뀌고 나머지는 유지된다.  
 - 메모나 태그를 지우려면 `--memo ""`, `--tags ""`처럼 빈 문자열을 전달한다.  
-- 수정은 임시 파일을 완성한 뒤 `os.replace`로 원본과 교체한다.  
+- 수정은 임시 파일을 완성한 뒤 `os.replace`로 원본과 원자적(Atomic)으로 교체한다.  
 
 ### 🟡 거래 삭제  
 
@@ -168,7 +209,7 @@ python3 -m budget_app category remove --name education
 
 <br><br>
 
-## 🟢 4. CSV 가져오기·내보내기  
+## 🟢 5. CSV 가져오기·내보내기  
 
 CSV = Comma-Separated Values, 쉼표로 열을 구분하는 표 파일 형식이다.  
 
@@ -226,7 +267,7 @@ python3 -m budget_app export --out ./export-range.csv --from 2026-08-01 --to 202
 
 <br><br>
 
-## 🟢 5. 코드 구조와 책임  
+## 🟢 6. 코드 구조와 책임  
 
 | 파일 | 책임 |  
 | --- | --- |
@@ -235,9 +276,9 @@ python3 -m budget_app export --out ./export-range.csv --from 2026-08-01 --to 202
 | `budget_app/repositories.py` | JSONL 스트리밍, 추가, 임시 파일, 원자적 교체 |  
 | `budget_app/services.py` | CRUD, 검색, 요약, 예산, 카테고리, CSV 업무 규칙 |  
 | `budget_app/decorators.py` | 공통 오류 출력과 종료 코드 |  
-| `budget_app/cli.py` | 명령·옵션 해석, 대화형 입력, 화면 출력 |  
+| `budget_app/cli.py` | 일회성 CLI + 대화형 콘솔(REPL) 메뉴 루프 |  
 | `budget_app/__main__.py` | `python3 -m budget_app` 시작 지점 |  
-| `tests/test_budget_app.py` | 필수 기능 자동 회귀 테스트 |  
+| `tests/test_budget_app.py` | 12개 필수 기능 및 대화형 자동 회귀 테스트 |  
 
 CLI = Command-Line Interface, 터미널의 글자 명령으로 프로그램을 조작하는 방식이다.  
 
@@ -245,7 +286,7 @@ CRUD = Create, Read, Update, Delete, 생성·조회·수정·삭제를 뜻한다
 
 <br><br>
 
-## 🟢 6. 테스트  
+## 🟢 7. 테스트  
 
 전체 테스트 실행:  
 
@@ -261,13 +302,13 @@ python3 -m unittest discover -s tests -v
 성공 기준:  
 
 ```text
-Ran 9 tests  
+Ran 12 tests  
 OK  
 ```
 
 <br><br>
 
-## 🟢 7. 종료 코드  
+## 🟢 8. 종료 코드  
 
 명령 실행 직후 다음 명령으로 종료 코드를 확인한다.  
 

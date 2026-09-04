@@ -191,6 +191,67 @@ class BudgetCliTest(unittest.TestCase):  # 실제 명령어 해석, 대화형 �
         self.assertIn("2026-09: 데이터 없음", printed)  # 거래가 없다는 안내가 출력됐는지 확인한다.
         self.assertIn("예산: 500000원 (사용률 0.0%)", printed)  # 저장한 예산과 0% 사용률이 출력됐는지 확인한다.
 
+    def test_interactive_update_flow(self) -> None:  # 대화형 거래 수정(안 B) 흐름을 검증한다.
+        # 먼저 수정 대상이 될 거래 한 건을 등록한다.
+        add_inputs = ["2026-08-01", "expense", "food", "10000", "점심", "work"]  # 등록 시 input으로 넘길 값들이다.
+        with patch("builtins.input", side_effect=add_inputs), patch("sys.stdout", io.StringIO()):  # 키보드와 화면을 임시 통로로 대체한다.
+            main(["--data-dir", str(self.data_dir), "add"])  # 거래 등록 명령을 실행한다.
+        repo = TransactionRepository(self.data_dir)  # 등록된 거래 id를 확인하기 위해 저장소를 연다.
+        saved_list = list(repo.iter_latest())  # 저장된 전체 거래를 최신순으로 읽는다.
+        self.assertEqual(1, len(saved_list))  # 거래가 정확히 한 건 등록되었는지 확인한다.
+        target_id = saved_list[0].id  # 생성된 실제 거래 고유 id를 가져온다.
+        # 거래 수정 시 전달할 대화형 답변들을 순서대로 준비한다.
+        update_inputs = [  # id, 날짜유지, 타입유지, 카테고리유지, 새금액, 새메모, 태그유지 순서다.
+            target_id,  # 방금 생성된 실제 거래의 id를 입력한다.
+            "",  # 날짜 변경 없이 엔터를 누른다.
+            "",  # 타입 변경 없이 엔터를 누른다.
+            "",  # 카테고리 변경 없이 엔터를 누른다.
+            "25000",  # 금액을 25000원으로 새로 입력한다.
+            "수정된 점심",  # 메모를 새 내용으로 입력한다.
+            "",  # 태그 변경 없이 엔터를 누른다.
+        ]  # 대화형 수정 답변 목록 만들기를 끝낸다.
+        update_output = io.StringIO()  # 화면 출력을 메모리에 담을 객체를 만든다.
+        with patch("builtins.input", side_effect=update_inputs), patch("sys.stdout", update_output):  # 대화형 입출력을 연결한다.
+            exit_code = main(["--data-dir", str(self.data_dir), "update"])  # 대화형 update 명령을 실행한다.
+        self.assertEqual(0, exit_code)  # 정상 종료 코드 0이 반환되었는지 확인한다.
+        self.assertIn(f"[수정 완료] id={target_id}", update_output.getvalue())  # 수정 완료 메시지가 화면에 나왔는지 확인한다.
+        updated_tx = repo.find_by_id(target_id)  # 수정된 거래를 id로 가져온다.
+        self.assertEqual(25000, updated_tx.amount)  # 변경한 금액이 25000원으로 영구 저장되었는지 검증한다.
+        self.assertEqual("수정된 점심", updated_tx.memo)  # 변경한 메모가 영구 저장되었는지 검증한다.
+        self.assertEqual("2026-08-01", updated_tx.date)  # 엔터로 유지한 기존 날짜가 그대로인지 검증한다.
+
+    def test_interactive_console_quit(self) -> None:  # 하위 명령 없이 진입한 대화형 콘솔에서 정상 종료(q)를 검증한다.
+        console_output = io.StringIO()  # 콘솔 메뉴 화면 출력을 담을 통로를 준비한다.
+        with patch("builtins.input", side_effect=["q"]), patch("sys.stdout", console_output):  # q를 입력받고 화면을 가로챈다.
+            exit_code = main(["--data-dir", str(self.data_dir)])  # 하위 명령 없이 데이터 폴더만 주고 실행한다.
+        self.assertEqual(0, exit_code)  # 정상 종료 코드 0을 돌려주었는지 확인한다.
+        printed = console_output.getvalue()  # 화면 출력 전체를 가져온다.
+        self.assertIn("대화형 콘솔 모드", printed)  # 대화형 콘솔 환영 헤더가 출력되었는지 확인한다.
+        self.assertIn("가계부 메인 메뉴", printed)  # 메뉴 목록이 출력되었는지 확인한다.
+        self.assertIn("가계부 프로그램을 종료한다", printed)  # 종료 인사가 출력되었는지 확인한다.
+
+    def test_interactive_console_loop_add_and_list(self) -> None:  # 대화형 콘솔 안에서 연속으로 추가 후 목록을 조회하는 전체 루프를 검증한다.
+        user_inputs = [  # 콘솔 루프 동안 순서대로 키보드에 입력할 문자열들이다.
+            "1",  # 메인 메뉴에서 1번(거래 추가)을 선택한다.
+            "2026-08-15",  # 날짜를 입력한다.
+            "expense",  # 지출 타입을 입력한다.
+            "food",  # food 카테고리를 입력한다.
+            "9000",  # 금액을 입력한다.
+            "김밥세트",  # 메모를 입력한다.
+            "lunch",  # 태그를 입력한다.
+            "2",  # 메인 메뉴에서 2번(최근 거래 목록)을 선택한다.
+            "5",  # 목록 출력 개수로 5를 입력한다.
+            "q",  # 모든 작업을 마치고 q로 프로그램을 종료한다.
+        ]  # 입력 시나리오 구성을 끝낸다.
+        console_output = io.StringIO()  # 화면 출력을 담을 통로를 준비한다.
+        with patch("builtins.input", side_effect=user_inputs), patch("sys.stdout", console_output):  # 키보드와 화면을 대체한다.
+            exit_code = main(["--data-dir", str(self.data_dir)])  # 대화형 콘솔을 실행한다.
+        self.assertEqual(0, exit_code)  # 연속 작업 후 정상 종료 코드 0을 돌려주었는지 확인한다.
+        printed = console_output.getvalue()  # 화면 전체 출력을 가져온다.
+        self.assertIn("[저장 완료] id=TX-", printed)  # 콘솔 내에서 거래 추가 성공 메시지가 나왔는지 확인한다.
+        self.assertIn("2026-08-15 | expense | food | 9000 | 김밥세트 | lunch", printed)  # 콘솔 내에서 목록 조회가 되었는지 확인한다.
+        self.assertIn("가계부 프로그램을 종료한다", printed)  # 마지막에 정상 종료 메시지가 나왔는지 확인한다.
+
 
 if __name__ == "__main__":  # 이 테스트 파일을 직접 실행했는지 확인한다.
     unittest.main()  # 현재 파일의 모든 test_ 메서드를 찾아 실행한다.
