@@ -10,6 +10,8 @@ from budget_app.constants import (  # 공통 상수 모듈에서 파서 기본�
 )  # 상수 가져오기를 끝낸다.
 
 
+
+# ✅ 문자열을 정수로 바꾸는 함수
 def _positive_integer(value: str) -> int:  # argparse 옵션 값을 1 이상의 정수로 검사한다.
     try:  # 문자열을 정수로 바꾸는 작업을 시도한다.
         number = int(value)  # 터미널에서 받은 문자열을 정수로 변환한다.
@@ -19,6 +21,16 @@ def _positive_integer(value: str) -> int:  # argparse 옵션 값을 1 이상의 
         raise argparse.ArgumentTypeError("1 이상의 정수를 입력한다.")  # argparse가 올바른 범위를 출력하게 한다.
     return number  # 검사를 통과한 양의 정수를 돌려준다.
 
+
+
+
+# ✅ ✏️ [study] 'argparse' python 표준 라이브러리
+# (ArgumentParser, subparser, add_parser, add_argument, argparse.ArgumentTypeError 등등 'argparse' 표준 라이브러리를 많이 사용하고 있다.)
+# argument는 그냥 프로그램에 전달하는 값이라고 생각하면 된다. 
+# parse는 복잡한 입력을 분석해서 프로그램이 사용할 수 있는 형태로 변환한다.
+# 즉, 전달하는 값을 받아서 분석하여 프로그램이 사용할 수 있는 형태로 변환해주는 것이다.
+# 단 몇 줄의 설정만으로 버그 없이 안전한 터미널 프로그램을 만들 수 있다.
+# 'python main.py --number 50'  이런 방식으로 옵션과 값 형태를 줄 수 있다.
 
 def build_parser() -> argparse.ArgumentParser:  # 모든 명령과 --help 정보를 가진 해석기를 만든다.
     parser = argparse.ArgumentParser(  # 프로그램 최상위 명령어 해석기를 만든다.

@@ -2,9 +2,9 @@
 
 import json  # json은 Python 데이터를 JSON(JavaScript Object Notation) 문자열로 바꾸는 도구다.
 
-import os  # 🔥 os는 파일 위치 이동과 디스크 동기화 같은 운영체제 기능을 제공한다.
-import tempfile  # 🔥 tempfile은 안전한 임시 파일을 만드는 표준 라이브러리다.
-from pathlib import Path  # 🔥 Path는 파일과 폴더 경로를 객체로 다루게 해 준다.
+import os                   # 🔥 os는 파일 위치 이동과 디스크 동기화 같은 운영체제 기능을 제공한다.
+import tempfile             # 🔥 tempfile은 안전한 임시 파일을 만드는 표준 라이브러리다.
+from pathlib import Path    # 🔥 Path는 파일과 폴더 경로를 객체로 다루게 해 준다.
 
 from typing import Any, Dict, Iterable, Iterator, List, Optional  # 함수가 주고받는 값의 자료형을 표시한다.
 
@@ -269,36 +269,53 @@ class BudgetStore:  # budgets.jsonl 파일만 책임지는 저장소 클래스�
         self.path = data_dir / "budgets.jsonl"  # 예산 저장 파일의 전체 경로를 만든다.
         self.path.touch(exist_ok=True)  # 첫 실행이고 파일이 없으면 빈 파일을 자동 생성한다.
 
+    # ✅
     def _load_all(self) -> Dict[str, int]:  # 저장된 월별 예산을 사전으로 읽는다.
         budgets: Dict[str, int] = {}  # 월을 열쇠로, 금액을 값으로 담을 빈 사전을 만든다.
+        
         with self.path.open("r", encoding="utf-8") as data_file:  # 예산 파일을 UTF-8 읽기 모드로 연다.
             for line in data_file:  # 파일을 한 줄씩 읽는다.
                 if not line.strip():  # 빈 줄인지 검사한다.
                     continue  # 빈 줄은 무시하고 다음 줄로 넘어간다.
+                
                 raw = _parse_json_line(line, self.path)  # JSONL 한 줄을 Python 사전으로 바꾼다.
+                
                 if "month" not in raw or "amount" not in raw:  # 필수 항목 두 개가 모두 있는지 검사한다.
                     raise DataFileError(*ErrorMessages.BUDGET_MISSING_FIELDS)  # 예산 필수 필드 누락 오류를 알린다.
                 month = validate_month(str(raw["month"]))  # 저장된 월을 YYYY-MM 형식으로 검사한다.
                 amount = validate_amount(raw["amount"])  # 저장된 예산을 양의 정수로 검사한다.
+                
                 if month in budgets:  # 같은 월이 이미 읽혔는지 검사한다.
                     raise DataFileError(*ErrorMessages.BUDGET_DUPLICATE_MONTH)  # 중복 예산 오류를 발생시킨다.
+                
                 budgets[month] = amount  # 검사한 월과 금액을 사전에 저장한다.
+        
         return budgets  # 모든 월별 예산을 돌려준다.
 
+    # ✅
     def get(self, month: str) -> Optional[int]:  # 특정 월에 설정된 예산을 찾는다.
         cleaned_month = validate_month(month)  # 찾을 월의 형식을 먼저 검사한다.
         return self._load_all().get(cleaned_month)  # 저장된 금액을 돌려주고 없으면 None을 돌려준다.
 
+    # ✅
     def set(self, month: str, amount: object) -> int:  # 특정 월의 예산을 새로 저장하거나 수정한다.
+        
         cleaned_month = validate_month(month)  # 저장할 월의 형식을 검사한다.
+        
         cleaned_amount = validate_amount(amount)  # 저장할 금액을 양의 정수로 검사한다.
+        
         budgets = self._load_all()  # 현재 저장된 모든 예산을 읽는다.
+        
         budgets[cleaned_month] = cleaned_amount  # 같은 월은 수정하고 새 월은 추가한다.
+        
         sorted_months = sorted(budgets)  # 저장된 월 이름을 오래된 월부터 정렬한다.
+        
         records: List[Dict[str, Any]] = []  # 예산 JSON 객체를 담을 빈 목록을 만든다.
+        
         for saved_month in sorted_months:  # 정렬된 월을 하나씩 꺼낸다.
             saved_amount = budgets[saved_month]  # 현재 월에 저장할 예산 금액을 가져온다.
             record = {"month": saved_month, "amount": saved_amount}  # 월과 금액을 JSON 저장용 사전으로 묶는다.
             records.append(record)  # 만든 예산 사전을 저장 목록에 추가한다.
         _atomic_write_jsonl(self.path, records)  # 전체 예산을 임시 파일에 쓴 뒤 원본과 안전하게 교체한다.
+        
         return cleaned_amount  # 실제로 저장한 금액을 돌려준다.
