@@ -112,13 +112,14 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
 
             elif choice == "7":  # 7번 예산 관리를 선택한 경우다.
                 print_section_title("월 예산 관리")  # 작업 소제목을 출력한다.
-                b_action = input("작업 선택 (1: 예산 설정, 2: 예산 조회): ").strip()  # 서브 작업을 받는다.
+                print("<작업 선택>\n 1. 예산 설정(set)\n 2. 예산 조회(get)")  # 예산 관리 서브 메뉴 목록을 출력한다.
+                b_action = input("선택: ").strip().lower()  # 서브 작업 번호나 영문 이름을 입력받는다.
                 b_month = input("대상 월(YYYY-MM): ").strip()  # 대상 월을 받는다.
-                if b_action == "1":  # 예산 설정을 선택한 경우다.
+                if b_action in ["1", "set"]:  # 예산 설정을 선택한 경우다.
                     b_amount = input("설정할 예산 금액: ").strip()  # 금액을 받는다.
                     saved_amt = service.set_budget(b_month, b_amount)  # 예산을 저장한다.
                     print(f"[저장 완료] {b_month} 예산 {saved_amt}원")  # 완료 메시지를 출력한다.
-                elif b_action == "2":  # 예산 조회를 선택한 경우다.
+                elif b_action in ["2", "get"]:  # 예산 조회를 선택한 경우다.
                     saved_amt = service.get_budget(b_month)  # 예산을 조회한다.
                     if saved_amt is None:  # 저장된 예산이 없는지 확인한다.
                         print(f"{b_month}: 예산 설정 없음")  # 없음 메시지를 출력한다.
@@ -129,13 +130,13 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
 
             elif choice == "8":  # 8번 카테고리 관리를 선택한 경우다.
                 print_section_title("카테고리 관리")  # 작업 소제목을 출력한다.
-                print("작업 선택\n 1. list\n 2. exists\n 3. add\n 4. remove")  # 카테고리 관리 서브 메뉴 목록을 출력한다.
+                print("<작업 선택>\n 1. 카테고리 목록 출력(list)\n 2. 포함 여부(exists)\n 3. 카테고리 추가(add)\n 4. 카테고리 삭제(remove)")  # 카테고리 관리 서브 메뉴 목록을 출력한다.
                 c_action = input("선택: ").strip().lower()  # 서브 작업 번호나 영문 이름을 입력받는다.
                 if c_action in ["1", "list"]:  # 1번 목록 조회를 선택한 경우다.
                     cats = service.list_categories()  # 저장된 모든 카테고리 목록을 가져온다.
                     for c in cats:  # 카테고리 이름을 하나씩 순회한다.
                         print(f"- {c}")  # 카테고리 이름을 글머리기호와 함께 출력한다.
-                elif c_action in ["2", "exists"]:  # 2번 존재 여부 확인을 선택한 경우다.
+                elif c_action in ["2", "exists"]:  # 2번 포함 여부 확인을 선택한 경우다.
                     c_name = input("확인할 카테고리명: ").strip()  # 확인할 카테고리 이름을 입력받는다.
                     if service.category_exists(c_name):  # 특정 카테고리가 등록되어 있는지 확인한다.
                         print(f"[확인 완료] category={c_name} (등록되어 있음)")  # 등록되어 있음을 출력한다.
@@ -154,14 +155,15 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
 
             elif choice == "9":  # 9번 CSV 관리를 선택한 경우다.
                 print_section_title("CSV 파일 처리")  # 작업 소제목을 출력한다.
-                csv_action = input("작업 선택 (1: 가져오기(import), 2: 내보내기(export)): ").strip()  # 서브 작업을 받는다.
-                if csv_action == "1":  # 가져오기를 선택한 경우다.
+                print("<작업 선택>\n 1. 가져오기(import)\n 2. 내보내기(export)")  # CSV 처리 서브 메뉴 목록을 출력한다.
+                csv_action = input("선택: ").strip().lower()  # 서브 작업 번호나 영문 이름을 입력받는다.
+                if csv_action in ["1", "import"]:  # 가져오기를 선택한 경우다.
                     csv_source = input("가져올 CSV 파일 경로: ").strip()  # 파일 경로를 받는다.
                     imported, skipped, errors = service.import_csv(Path(csv_source))  # CSV를 가져온다.
                     for err in errors:  # 오류 내역을 순회한다.
                         print(f"[건너뜀] {err}")  # 건너뛴 이유를 출력한다.
                     print(f"[완료] imported={imported}, skipped={skipped}")  # 최종 통계를 출력한다.
-                elif csv_action == "2":  # 내보내기를 선택한 경우다.
+                elif csv_action in ["2", "export"]:  # 내보내기를 선택한 경우다.
                     csv_target = input("저장할 CSV 파일 경로: ").strip()  # 대상 경로를 받는다.
                     e_month = input("내보낼 월(YYYY-MM, 생략 시 전체): ").strip() or None  # 월 조건을 받는다.
                     count = service.export_csv(Path(csv_target), month=e_month)  # CSV로 내보낸다.

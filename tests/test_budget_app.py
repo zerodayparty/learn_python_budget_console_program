@@ -293,13 +293,38 @@ class BudgetCliTest(unittest.TestCase):  # 실제 명령어 해석, 대화형 �
             exit_code = main(["--data-dir", str(self.data_dir)])  # 대화형 콘솔을 실행한다.
         self.assertEqual(0, exit_code)  # 대화형 콘솔이 정상 종료 코드 0을 돌려줬는지 확인한다.
         printed = interactive_out.getvalue()  # 대화형 콘솔 전체 출력 내용을 가져온다.
-        self.assertIn("작업 선택\n 1. list\n 2. exists\n 3. add\n 4. remove", printed)  # 요구된 서브 메뉴 목록 형식이 출력됐는지 확인한다.
+        self.assertIn("<작업 선택>\n 1. 카테고리 목록 출력(list)\n 2. 포함 여부(exists)\n 3. 카테고리 추가(add)\n 4. 카테고리 삭제(remove)", printed)  # 변경된 카테고리 서브 메뉴 목록 형식이 출력됐는지 확인한다.
         self.assertIn("- food", printed)  # 1번 list로 food 카테고리가 목록에 출력됐는지 확인한다.
         self.assertIn("[확인 완료] category=food (등록되어 있음)", printed)  # food 카테고리 등록 확인 출력이 나왔는지 확인한다.
         self.assertIn("[확인 완료] category=ghost (등록되어 있지 않음)", printed)  # ghost 카테고리 미등록 출력이 나왔는지 확인한다.
         self.assertIn("[저장 완료] category=education", printed)  # 3번 add로 education 카테고리가 추가됐는지 확인한다.
         self.assertIn("[확인 완료] category=education (등록되어 있음)", printed)  # 2번 exists로 education 카테고리가 확인됐는지 확인한다.
         self.assertIn("[삭제 완료] category=education", printed)  # 4번 remove로 education 카테고리가 삭제됐는지 확인한다.
+
+    def test_budget_and_csv_interactive_submenus(self) -> None:  # 예산 및 CSV 관리의 <작업 선택> 대화형 서브 메뉴 형식을 검증한다.
+        console_inputs = [  # 7번 예산 설정 및 9번 CSV 서브 메뉴를 실행하고 종료하는 입력 목록이다.
+            "7",  # 메인 메뉴에서 7번(월 예산 관리)을 선택한다.
+            "1",  # 서브 작업에서 1번(예산 설정)을 선택한다.
+            "2026-10",  # 대상 월로 2026-10을 입력한다.
+            "600000",  # 예산 금액으로 600000을 입력한다.
+            "7",  # 메인 메뉴에서 7번(월 예산 관리)을 다시 선택한다.
+            "get",  # 이번에는 영문 단어 get으로 서브 작업을 선택한다.
+            "2026-10",  # 대상 월로 2026-10을 입력한다.
+            "9",  # 메인 메뉴에서 9번(CSV 파일 처리)을 선택한다.
+            "export",  # 서브 작업에서 export를 선택한다.
+            str(self.data_dir / "test_out.csv"),  # 저장할 CSV 파일 경로를 입력한다.
+            "2026-10",  # 내보낼 대상 월을 입력한다.
+            "q",  # 프로그램을 정상 종료한다.
+        ]  # 대화형 콘솔 입력 순서 구성을 끝낸다.
+        interactive_out = io.StringIO()  # 화면 출력을 담을 메모리 객체를 준비한다.
+        with patch("builtins.input", side_effect=console_inputs), patch("sys.stdout", interactive_out):  # 입출력을 모킹한다.
+            exit_code = main(["--data-dir", str(self.data_dir)])  # 대화형 콘솔을 실행한다.
+        self.assertEqual(0, exit_code)  # 정상 종료 코드 0인지 확인한다.
+        printed = interactive_out.getvalue()  # 출력된 전체 문자열을 가져온다.
+        self.assertIn("<작업 선택>\n 1. 예산 설정(set)\n 2. 예산 조회(get)", printed)  # 예산 서브 메뉴 형식 출력을 검증한다.
+        self.assertIn("[저장 완료] 2026-10 예산 600000원", printed)  # 예산 저장 완료 출력을 검증한다.
+        self.assertIn("2026-10: 예산 600000원", printed)  # 예산 조회 결과 출력을 검증한다.
+        self.assertIn("<작업 선택>\n 1. 가져오기(import)\n 2. 내보내기(export)", printed)  # CSV 서브 메뉴 형식 출력을 검증한다.
 
 
 if __name__ == "__main__":  # 이 테스트 파일을 직접 실행했는지 확인한다.
