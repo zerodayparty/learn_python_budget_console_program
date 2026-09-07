@@ -44,7 +44,7 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
             return 0  # 정상 종료 코드를 돌려준다.
 
         if choice in ["q", "quit", "exit"]:  # 사용자가 종료 메뉴를 선택했는지 확인한다.
-            print("가계부 프로그램을 종료한다. 안녕히 가세요!")  # 친절한 종료 인사를 출력한다.
+            print("🔚 가계부 프로그램을 종료한다. 👋 안녕히 가세요!")  # 친절한 종료 인사를 출력한다.
             return 0  # 정상 종료 코드를 돌려준다.
 
         try:  # 선택한 기능 실행 중 오류가 나도 메뉴판으로 안전하게 돌아오기 위한 감지 블록을 연다.
@@ -69,7 +69,7 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
                     found = True  # 거래가 존재함을 표시한다.
                     print_transaction(tx)  # 거래 정보를 출력한다.
                 if not found:  # 거래가 하나도 없었는지 확인한다.
-                    print("거래 데이터 없음")  # 데이터 없음 안내를 출력한다.
+                    print("❌ ⚠️ 거래 데이터 없음")  # 데이터 없음 안내를 출력한다.
 
             elif choice == "3":  # 3번 조건별 검색을 선택한 경우다.
                 print_section_title("조건별 거래 검색 (생략하려면 엔터를 누른다)")  # 작업 소제목을 출력한다.
@@ -84,7 +84,7 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
                     found = True  # 검색 결과가 있음을 표시한다.
                     print_transaction(tx)  # 거래를 출력한다.
                 if not found:  # 검색 결과가 없는지 확인한다.
-                    print("검색 결과 없음")  # 검색 결과 없음 문구를 출력한다.
+                    print("❌ ⚠️ 검색 결과 없음")  # 검색 결과 없음 문구를 출력한다.
 
             elif choice == "4":  # 4번 거래 수정을 선택한 경우다.
                 print_section_title("거래 수정 (대화형)")  # 작업 소제목을 출력한다.
@@ -98,7 +98,7 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
                     service.delete_transaction(target_id)  # 안전하게 거래를 삭제한다.
                     print(f"[삭제 완료] id={target_id}")  # 삭제 완료 메시지를 출력한다.
                 else:  # id가 비어 있는 경우다.
-                    print_error("삭제할 거래 id를 입력해야 한다.")  # 안내를 출력한다.
+                    print_error("❌ ⚠️ 삭제할 거래 id를 입력해야 한다.")  # 안내를 출력한다.
 
             elif choice == "6":  # 6번 월별 요약을 선택한 경우다.
                 print_section_title("월별 요약 및 예산")  # 작업 소제목을 출력한다.
@@ -108,7 +108,7 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
                     top = int(raw_top) if raw_top.isdigit() and int(raw_top) > 0 else DEFAULT_SUMMARY_TOP  # 기본값을 정한다.
                     print_summary(service.monthly_summary(month, top))  # 요약을 출력한다.
                 else:  # 월이 비어 있는 경우다.
-                    print_error("조회할 월(YYYY-MM)을 입력해야 한다.")  # 안내를 출력한다.
+                    print_error("❌ ⚠️ 조회할 월(YYYY-MM)을 입력해야 한다.")  # 안내를 출력한다.
 
             elif choice == "7":  # 7번 예산 관리를 선택한 경우다.
                 print_section_title("월 예산 관리")  # 작업 소제목을 출력한다.
@@ -125,7 +125,7 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
                     else:  # 저장된 예산이 있는 경우다.
                         print(f"{b_month}: 예산 {saved_amt}원")  # 조회 결과를 출력한다.
                 else:  # 잘못된 번호를 누른 경우다.
-                    print("잘못된 선택이다.")  # 안내를 출력한다.
+                    print("❌ ⚠️ 잘못된 선택이다.")  # 안내를 출력한다.
 
             elif choice == "8":  # 8번 카테고리 관리를 선택한 경우다.
                 print_section_title("카테고리 관리")  # 작업 소제목을 출력한다.
@@ -143,7 +143,7 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
                     service.remove_category(c_name)  # 사용 중 여부를 확인하고 삭제한다.
                     print(f"[삭제 완료] category={c_name}")  # 완료 메시지를 출력한다.
                 else:  # 잘못된 번호를 누른 경우다.
-                    print("잘못된 선택이다.")  # 안내를 출력한다.
+                    print("❌ ⚠️ 잘못된 선택이다.")  # 안내를 출력한다.
 
             elif choice == "9":  # 9번 CSV 관리를 선택한 경우다.
                 print_section_title("CSV 파일 처리")  # 작업 소제목을 출력한다.
@@ -160,10 +160,10 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
                     count = service.export_csv(Path(csv_target), month=e_month)  # CSV로 내보낸다.
                     print(f"[완료] {csv_target} ({count} records)")  # 완료 메시지를 출력한다.
                 else:  # 잘못된 번호를 누른 경우다.
-                    print("잘못된 선택이다.")  # 안내를 출력한다.
+                    print("❌ ⚠️ 잘못된 선택이다.")  # 안내를 출력한다.
 
             else:  # 메뉴에 없는 번호를 입력한 경우다.
-                print("1부터 9 또는 q를 입력해야 한다.")  # 올바른 선택 안내를 출력한다.
+                print("\n\n ❌ ⚠️ 1부터 9 또는 q를 입력해야 한다. ❌")  # 올바른 선택 안내를 출력한다.
 
         except (ValidationError, NotFoundError, ConflictError) as error:  # 서비스에서 발생한 비즈니스 검증 오류를 잡는다.
             print_error(error.message, error.hint)  # 에러 메시지와 힌트를 출력한다.
