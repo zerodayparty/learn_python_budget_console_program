@@ -14,9 +14,27 @@ from budget_app.constants import (  # 공통 상수 모듈에서 CLI 기본값�
 from budget_app.decorators import handle_cli_errors  # 공통 오류 처리를 붙이는 데코레이터를 가져온다.
 from budget_app.exceptions import ConflictError, NotFoundError, ValidationError  # 대화형 입력에서 오류를 보여 주고 다시 받을 때 사용한다.
 from budget_app.models import MonthlySummary, Transaction  # 거래와 요약을 화면 형식으로 출력하기 위해 가져온다.
+from budget_app.output import (  # 화면 출력 유틸리티 함수들을 가져온다.
+    print_divider,  # 구분선 출력 함수다.
+    print_error,  # 오류 및 힌트 출력 함수다.
+    print_section_title,  # 작업 소제목 출력 함수다.
+    print_success,  # 성공 완료 문구 출력 함수다.
+    print_warning,  # 경고 문구 출력 함수다.
+)  # 출력 유틸리티 가져오기를 끝낸다.
+from budget_app.prompt import (  # 대화형 입력 함수들을 가져온다.
+    prompt_registered_category,  # 등록된 카테고리 입력 함수다.
+    prompt_until_valid,  # 검증 통과할 때까지 입력받는 함수다.
+    prompt_update_interactive,  # 대화형 거래 수정 함수다.
+)  # 입력 함수 가져오기를 끝낸다.
 from budget_app.repositories import BudgetStore, CategoryStore, TransactionRepository  # 세 저장 파일을 준비할 저장소다.
 from budget_app.services import BudgetService  # 실제 가계부 업무 규칙을 실행할 서비스다.
 from budget_app.validators import validate_amount, validate_date, validate_transaction_type  # 대화형 입력을 즉시 검사할 함수다.
+from budget_app.views import (  # 화면 뷰 출력 함수들을 가져온다.
+    print_interactive_header,  # 대화형 모드 환영 배너 출력 함수다.
+    print_main_menu,  # 메인 메뉴판 출력 함수다.
+    print_summary,  # 월별 요약 통계 출력 함수다.
+    print_transaction,  # 거래 한 줄 출력 함수다.
+)  # 화면 뷰 가져오기를 끝낸다.
 
 
 def _positive_integer(value: str) -> int:  # argparse 옵션 값을 1 이상의 정수로 검사한다.
@@ -140,91 +158,12 @@ def build_parser() -> argparse.ArgumentParser:  # 모든 명령과 --help 정보
     return parser  # 모든 명령과 옵션이 등록된 해석기를 돌려준다.
 
 
-def _prompt_until_valid(label: str, validator: Callable[[str], object]) -> object:  # 올바른 값을 받을 때까지 대화형 입력을 반복한다.
-    while True:  # 검사를 통과하거나 사용자가 입력을 중단할 때까지 반복한다.
-        raw = input(label)  # 안내 문구를 출력하고 사용자의 한 줄 입력을 받는다.
-        try:  # 현재 입력값 검사를 시도한다.
-            return validator(raw)  # 검사를 통과한 값을 즉시 돌려주면서 반복을 끝낸다.
-        except ValidationError as error:  # 사용자가 고칠 수 있는 입력 오류를 잡는다.
-            print(f"[오류] {error.message}")  # 잘못된 이유를 스택트레이스 없이 출력한다.
-            print(f"[힌트] {error.hint}")  # 올바르게 다시 입력하는 방법을 출력한다.
-
-
-def _prompt_registered_category(service: BudgetService) -> str:  # 등록된 카테고리를 입력할 때까지 반복한다.
-    while True:  # 등록된 이름을 받거나 사용자가 입력을 중단할 때까지 반복한다.
-        category = input("카테고리: ").strip()  # 카테고리 이름을 받고 앞뒤 공백을 제거한다.
-        if category in service.list_categories():  # 입력한 이름이 저장된 목록에 있는지 확인한다.
-            return category  # 등록된 이름이면 즉시 돌려주면서 반복을 끝낸다.
-        print("[오류] 등록되지 않은 카테고리다.")  # 존재하지 않는 이름임을 알린다.
-        print("[힌트] 사용 가능: " + ", ".join(service.list_categories()))  # 지금 선택 가능한 이름을 보여 준다.
-
-
-def _prompt_update_interactive(service: BudgetService, transaction_id: Optional[str] = None) -> Transaction:  # 거래를 찾고 수정할 필드를 대화형으로 입력받아 수정한다.
-    target_id = transaction_id  # 인자로 받은 거래 id를 우선 대상 변수에 저장한다.
-    if target_id is None or not target_id.strip():  # 거래 id가 비어 있는지 확인한다.
-        target_id = input("수정할 거래 id: ").strip()  # 거래 id가 없으면 대화형으로 거래 id를 입력받는다.
-    found = service.transactions.find_by_id(target_id)  # 저장소에서 해당 거래를 찾아본다.
-    if found is None:  # 거래를 찾지 못했는지 확인한다.
-        raise NotFoundError(f"id '{target_id}' 거래가 없다.", "list 명령으로 존재하는 거래 id를 확인한다.")  # 없는 거래 오류를 발생시킨다.
-    print(f"[현재 내역] {found.date} | {found.type} | {found.category} | {found.amount} | {found.memo} | {','.join(found.tags)}")  # 수정 대상의 현재 정보를 출력한다.
-    print("수정할 값을 입력한다. (기존 값을 유지하려면 아무것도 입력하지 않고 엔터를 누른다.)")  # 사용자 안내 문구를 출력한다.
-    date_input = input(f"새 날짜(YYYY-MM-DD) [현재: {found.date}]: ").strip()  # 새 날짜를 입력받는다.
-    type_input = input(f"새 타입(income/expense) [현재: {found.type}]: ").strip()  # 새 거래 타입을 입력받는다.
-    category_input = input(f"새 카테고리 [현재: {found.category}]: ").strip()  # 새 카테고리를 입력받는다.
-    amount_input = input(f"새 금액(양의 정수) [현재: {found.amount}]: ").strip()  # 새 금액을 입력받는다.
-    memo_input = input(f"새 메모 [현재: {found.memo}]: ")  # 새 메모를 입력받는다.
-    tags_input = input(f"새 태그(쉼표 구분) [현재: {','.join(found.tags)}]: ")  # 새 태그를 입력받는다.
-    updated_date = date_input if date_input else None  # 입력값이 있으면 전달하고 빈칸이면 None을 지정한다.
-    updated_type = type_input if type_input else None  # 입력값이 있으면 전달하고 빈칸이면 None을 지정한다.
-    updated_category = category_input if category_input else None  # 입력값이 있으면 전달하고 빈칸이면 None을 지정한다.
-    updated_amount = amount_input if amount_input else None  # 입력값이 있으면 전달하고 빈칸이면 None을 지정한다.
-    updated_memo = memo_input if memo_input.strip() else (None if memo_input == "" else "")  # 메모 수정 여부를 결정한다.
-    updated_tags = tags_input if tags_input.strip() else (None if tags_input == "" else "")  # 태그 수정 여부를 결정한다.
-    return service.update_transaction(  # 결정된 필드들을 서비스에 넘겨 수정을 진행한다.
-        transaction_id=target_id,  # 대상 거래 id를 전달한다.
-        date=updated_date,  # 새 날짜를 전달한다.
-        transaction_type=updated_type,  # 새 타입을 전달한다.
-        category=updated_category,  # 새 카테고리를 전달한다.
-        amount=updated_amount,  # 새 금액을 전달한다.
-        memo=updated_memo,  # 새 메모를 전달한다.
-        tags=updated_tags,  # 새 태그를 전달한다.
-    )  # 수정 실행 결과를 돌려준다.
-
-
-
-
-def _print_transaction(transaction: Transaction) -> None:  # 거래 한 건을 읽기 쉬운 한 줄로 출력한다.
-    tags = ",".join(transaction.tags)  # 태그 목록을 쉼표로 이어 붙인 문자열로 만든다.
-    columns = [  # 화면에 출력할 거래 값을 순서대로 담는다.
-        transaction.id,  # 첫 번째 열에 거래 id를 넣는다.
-        transaction.date,  # 두 번째 열에 거래 날짜를 넣는다.
-        transaction.type,  # 세 번째 열에 거래 타입을 넣는다.
-        transaction.category,  # 네 번째 열에 카테고리를 넣는다.
-        str(transaction.amount),  # 다섯 번째 열에 문자열로 바꾼 금액을 넣는다.
-        transaction.memo,  # 여섯 번째 열에 메모를 넣는다.
-        tags,  # 일곱 번째 열에 쉼표로 연결한 태그를 넣는다.
-    ]  # 거래 출력 열 만들기를 끝낸다.
-    line = " | ".join(columns)  # 각 열 사이에 세로 구분선을 넣어 한 줄로 연결한다.
-    print(line)  # 완성한 거래 한 줄을 화면에 출력한다.
-
-
-
-
-def _print_summary(summary: MonthlySummary) -> None:  # 월별 계산 결과를 요구사항 순서로 출력한다.
-    if summary.transaction_count == 0:  # 해당 월에 거래가 하나도 없는지 확인한다.
-        print(f"{summary.month}: 데이터 없음")  # 데이터가 없다는 사실을 명확히 출력한다.
-    else:  # 해당 월에 거래가 한 건 이상 있는 경우다.
-        print(f"총 수입: {summary.total_income}원")  # 해당 월의 모든 수입 합계를 출력한다.
-        print(f"총 지출: {summary.total_expense}원")  # 해당 월의 모든 지출 합계를 출력한다.
-        print(f"잔액: {summary.balance}원")  # 총수입에서 총지출을 뺀 잔액을 출력한다.
-    if summary.budget is not None:  # 해당 월에 예산이 설정되어 있는지 확인한다.
-        print(f"예산: {summary.budget}원 (사용률 {summary.budget_usage:.1f}%)")  # 예산과 지출 사용률을 함께 출력한다.
-        if summary.is_over_budget:  # 총지출이 예산보다 큰지 확인한다.
-            print("[경고] 월 예산을 초과했다.")  # 예산 초과 경고 문구를 출력한다.
-    if summary.transaction_count > 0 and summary.category_expenses:  # 거래와 지출 카테고리 합계가 모두 있는지 확인한다.
-        print("지출 카테고리 TOP")  # 이어지는 목록의 뜻을 제목으로 출력한다.
-        for rank, (category, amount) in enumerate(summary.category_expenses, start=1):  # 큰 금액부터 1위 번호를 붙여 읽는다.
-            print(f"{rank}) {category} {amount}원")  # 순위, 카테고리, 합계를 한 줄로 출력한다.
+# prompt.py 및 views.py 모듈 함수와 기존 cli 내부 호출 간의 호환용 별칭
+_prompt_until_valid = prompt_until_valid  # 대화형 값 검증 입력 함수다.
+_prompt_registered_category = prompt_registered_category  # 등록된 카테고리 입력 함수다.
+_prompt_update_interactive = prompt_update_interactive  # 대화형 거래 수정 함수다.
+_print_transaction = print_transaction  # 거래 한 줄 출력 뷰 함수다.
+_print_summary = print_summary  # 월별 요약 통계 출력 뷰 함수다.
 
 
 
@@ -369,23 +308,10 @@ def execute(args: argparse.Namespace) -> int:  # argparse가 해석한 명령 �
 def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 선택하며 계속 작업하는 대화형 콘솔을 실행한다.
     service = _build_service(data_dir)  # 지정된 데이터 폴더로 세 파일과 서비스를 초기화한다.
 
-    print("\n" + "=" * 56)  # 상단 구분 장식선을 출력한다.
-    print("  💰 파일 기반 가계부 콘솔 프로그램 (대화형 콘솔 모드)")  # 프로그램 환영 제목을 출력한다.
-    print("=" * 56)  # 하단 구분 장식선을 출력한다.
+    print_interactive_header()  # views 모듈에서 대화형 모드 환영 배너를 화면에 출력한다.
     
     while True:  # 사용자가 종료를 선택할 때까지 메뉴 루프를 무한 반복한다.
-        
-        print("\n\n🔥🔥🔥🔥🔥[가계부 메인 메뉴]🔥🔥🔥🔥🔥")  # 메인 메뉴 제목을 출력한다.
-        print("  1. 거래 추가 (add)")  # 1번 메뉴 항목을 출력한다.
-        print("  2. 최근 거래 목록 (list)")  # 2번 메뉴 항목을 출력한다.
-        print("  3. 조건별 거래 검색 (search)")  # 3번 메뉴 항목을 출력한다.
-        print("  4. 거래 수정 (update - 대화형)")  # 4번 메뉴 항목을 출력한다.
-        print("  5. 거래 삭제 (delete)")  # 5번 메뉴 항목을 출력한다.
-        print("  6. 월별 요약 및 예산 현황 (summary)")  # 6번 메뉴 항목을 출력한다.
-        print("  7. 월 예산 설정 및 조회 (budget)")  # 7번 메뉴 항목을 출력한다.
-        print("  8. 카테고리 관리 (category)")  # 8번 메뉴 항목을 출력한다.
-        print("  9. CSV 내보내기 / 가져오기 (export / import)")  # 9번 메뉴 항목을 출력한다.
-        print("  q. 프로그램 종료 (quit)")  # 종료 메뉴 항목을 출력한다.
+        print_main_menu()  # views 모듈에서 1~9번 및 종료 메뉴 목록을 화면에 출력한다.
 
         try:  # 사용자 입력을 안전하게 받기 위한 예외 감지 블록을 연다.
             choice = input("\n메뉴 번호를 선택한다: ").strip().lower()  # 사용자로부터 원하는 메뉴 번호를 입력받는다.
