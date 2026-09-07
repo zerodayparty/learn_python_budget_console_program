@@ -55,4 +55,4 @@ def print_main_menu() -> None:  # 사용자가 번호를 고를 수 있도록 1~
     print("  7. 월 예산 설정 및 조회 (budget)")  # 7번 메뉴: 예산 관리를 안내한다.
     print("  8. 카테고리 관리 (category)")  # 8번 메뉴: 카테고리 관리를 안내한다.
     print("  9. CSV 내보내기 / 가져오기 (export / import)")  # 9번 메뉴: CSV 작업을 안내한다.
-    print("  q. 프로그램 종료 (quit)")  # q 메뉴: 프로그램 종료를 안내한다.
+    print("  q. 프로그램 종료 (q / quit / exit)")  # q 메뉴: 프로그램 종료를 안내한다.
