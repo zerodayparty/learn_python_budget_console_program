@@ -11,38 +11,52 @@ Python 표준 라이브러리만 사용하는 JSONL(JSON Lines) 기반 가계부
 
 <br><br>
 
-## 🟢 1. 실행 환경  
+## 🟢 1. 실행 환경 및 astral uv package manager 설정  
 
 | 항목 | 값 |  
 | --- | --- |
 | 운영체제 | macOS 포함 모든 Python 지원 운영체제 |  
-| Python | 3.10 이상 권장 |  
-| 외부 패키지 | 없음 |  
+| 환경 관리 도구 | `uv` (초고속 Python 버전 및 가상환경 관리 도구) |  
+| Python 버전 | `3.10` 고정 격리 환경 (`.venv`) |  
+| 외부 패키지 | 없음 (Python 표준 라이브러리만 사용) |  
 | 실행 위치 | 프로젝트 최상위 폴더 |  
 
-Python 버전 확인:  
+<br>
+
+### 🟡 1) 최초 1회: uv 환경 구축  
+
+요구사항(Python 3.10 이상)에 맞춰 프로젝트 설정 파일(`pyproject.toml`)을 생성하고 전용 가상환경(`.venv`)을 구성한다.  
 
 ```bash
-python3 --version  
+# 1. 파이썬 3.10 이상 요구사항을 만족하는 프로젝트 설정 파일(pyproject.toml)을 생성한다.  
+uv init --python 3.10 --bare --no-readme  
+
+# 2. 프로젝트 전용 파이썬 3.10 가상환경(.venv)을 생성한다.  
+uv venv --python 3.10  
 ```
 
-- `Python`은 프로그래밍 언어 이름이다.  
-- `--version`은 설치된 버전을 출력하는 옵션이다.  
-- 3.10 이상이면 요구사항의 개발 환경을 만족한다.  
 
-현재 프로젝트 폴더로 이동한 뒤 프로그램을 실행하거나 전체 도움말을 확인한다.  
+
+<br>
+
+### 🟡 2) 프로그램 실행 및 전체 도움말 확인  
+
+`uv run`을 사용하면 별도로 가상환경을 활성화(`activate`)하지 않아도 자동으로 `.venv` 안의 파이썬 3.10 환경에서 안전하게 프로그램을 실행한다.  
 
 ```bash
 # 1. 대화형 콘솔 모드 (진입하여 종료 전까지 메뉴 선택 및 연속 작업)  
-python3 -m budget_app  
+uv run python -m budget_app  
 
 # 2. 전체 명령어 도움말 확인  
-python3 -m budget_app --help  
+uv run python -m budget_app --help  
 ```
 
+- `uv run` = UltraViolet Run, 생성된 가상환경(`.venv`)의 파이썬을 이용해 명령어를 실행한다.  
 - `-m` = module, 파일 경로 대신 `budget_app` 모듈을 실행한다.  
-- 인자 없이 `python3 -m budget_app`만 실행하면 **대화형 콘솔(메뉴 루프)**로 진입하여 번호를 누르며 연속으로 작업할 수 있다.  
+- 인자 없이 `uv run python -m budget_app`만 실행하면 **대화형 콘솔(메뉴 루프)**로 진입하여 번호를 누르며 연속으로 작업할 수 있다.  
 - `--help`는 사용할 수 있는 명령과 옵션을 출력한다.  
+
+
 
 <br><br>
 
@@ -52,14 +66,14 @@ python3 -m budget_app --help
 
 ### 🟡 1) 두 가지 실행 모드 비교표  
 
-| 비교 항목 | 1. 대화형 콘솔 모드 (Interactive REPL) | 2. 일회성 CLI 모드 (One-shot CLI) |
+| 비교 항목 | 1. 대화형 콘솔 모드 (Interactive REPL) | 2. 일회성 CLI 모드 (One-shot CLI) |  
 | :--- | :--- | :--- |
-| **풀네임 (Full Name)** | Read-Eval-Print Loop (입력-평가-출력 루프) | Command Line Interface (명령줄 인터페이스) |
-| **실행 명령어** | `python3 -m budget_app` | `python3 -m budget_app <command> [options]` |
-| **동작 흐름** | 프로그램 진입 $\rightarrow$ 메뉴 루프 연속 작업 $\rightarrow$ `q`로 종료 | 단일 명령어 1회 실행 $\rightarrow$ 결과 출력 $\rightarrow$ 즉시 종료 |
-| **주요 사용자** | **사람 (직접 키보드를 두드리는 사용자)** | **컴퓨터 (자동화 스크립트, 크론잡, 파이프라인)** |
-| **장점** | 옵션을 외울 필요 없이 메뉴판 보고 직관적 작업 | 명령어 한 줄로 즉시 완료되며 다른 도구와 파이프(`\|`) 연결 가능 |
-| **실행 예시** | 메뉴 번호 `1` 입력 후 순차 대화형 질문에 응답 | `python3 -m budget_app list --limit 5` |
+| **풀네임 (Full Name)** | Read-Eval-Print Loop (입력-평가-출력 루프) | Command Line Interface (명령줄 인터페이스) |  
+| **실행 명령어** | `uv run python -m budget_app` | `uv run python -m budget_app <command> [options]` |  
+| **동작 흐름** | 프로그램 진입 $\rightarrow$ 메뉴 루프 연속 작업 $\rightarrow$ `q`로 종료 | 단일 명령어 1회 실행 $\rightarrow$ 결과 출력 $\rightarrow$ 즉시 종료 |  
+| **주요 사용자** | **사람 (직접 키보드를 두드리는 사용자)** | **컴퓨터 (자동화 스크립트, 크론잡, 파이프라인)** |  
+| **장점** | 옵션을 외울 필요 없이 메뉴판 보고 직관적 작업 | 명령어 한 줄로 즉시 완료되며 다른 도구와 파이프(`\|`) 연결 가능 |  
+| **실행 예시** | 메뉴 번호 `1` 입력 후 순차 대화형 질문에 응답 | `uv run python -m budget_app list --limit 5` |  
 
 <br>
 
@@ -67,10 +81,10 @@ python3 -m budget_app --help
 
 요구사항 4.6에 맞추어 거래 수정 역시 두 가지 방식을 모두 지원한다.  
 
-- **대화형 방식 (안 B, 기본 권장)**: `python3 -m budget_app update`  
+- **대화형 방식 (안 B, 기본 권장)**: `uv run python -m budget_app update`  
     - 거래 `id`를 묻고 기존 내역을 보여준 뒤, 변경할 항목만 새 값을 입력받는다.  
     - **변경하지 않을 항목은 엔터(Enter)만 치면 기존 값이 그대로 안전하게 유지**된다.  
-- **옵션 방식 (안 A, 일회성)**: `python3 -m budget_app update --id TX-xxx --amount 20000`  
+- **옵션 방식 (안 A, 일회성)**: `uv run python -m budget_app update --id TX-xxx --amount 20000`  
     - 터미널 명령어 한 줄로 특정 필드만 즉시 원자적(Atomic)으로 변경한다.  
 
 <br><br>
@@ -98,7 +112,7 @@ JSONL 저장 예시:
 다른 저장 폴더를 사용하려면 `--data-dir`을 하위 명령 앞에 둔다.  
 
 ```bash
-python3 -m budget_app --data-dir ./practice_data category list  
+uv run python -m budget_app --data-dir ./practice_data category list  
 ```
 
 이 명령은 실제 기본 `data` 대신 `practice_data` 안의 세 파일을 사용한다.  
@@ -110,7 +124,7 @@ python3 -m budget_app --data-dir ./practice_data category list
 ### 🟡 거래 추가  
 
 ```bash
-python3 -m budget_app add  
+uv run python -m budget_app add  
 ```
 
 날짜, 타입, 카테고리, 금액, 메모, 태그를 차례로 입력한다. 날짜·타입·금액·카테고리가 잘못되면 올바른 값을 받을 때까지 다시 묻는다.  
@@ -118,7 +132,7 @@ python3 -m budget_app add
 ### 🟡 최신 거래 목록  
 
 ```bash
-python3 -m budget_app list --limit 10  
+uv run python -m budget_app list --limit 10  
 ```
 
 - `--limit`은 최대 출력 개수다.  
@@ -128,7 +142,7 @@ python3 -m budget_app list --limit 10
 ### 🟡 거래 검색  
 
 ```bash
-python3 -m budget_app search --from 2026-08-01 --to 2026-08-31 --category food --type expense --q 점심 --tag meal  
+uv run python -m budget_app search --from 2026-08-01 --to 2026-08-31 --category food --type expense --q 점심 --tag meal  
 ```
 
 | 옵션 | 뜻 |  
@@ -149,7 +163,7 @@ python3 -m budget_app search --from 2026-08-01 --to 2026-08-31 --category food -
 **1) 대화형 방식 (안 B, 권장):**  
 
 ```bash
-python3 -m budget_app update  
+uv run python -m budget_app update  
 ```
 
 - 수정할 거래 `id`를 묻고, 해당 거래의 현재 정보를 화면에 출력한다.  
@@ -159,7 +173,7 @@ python3 -m budget_app update
 **2) 옵션 방식 (안 A):**  
 
 ```bash
-python3 -m budget_app update --id TX-A1B2C3D4E5F6 --amount 18000 --memo "점심 가격 수정" --tags "meal,work"  
+uv run python -m budget_app update --id TX-A1B2C3D4E5F6 --amount 18000 --memo "점심 가격 수정" --tags "meal,work"  
 ```
 
 - 사용 가능한 수정 옵션: `--date`, `--type`, `--category`, `--amount`, `--memo`, `--tags`  
@@ -170,7 +184,7 @@ python3 -m budget_app update --id TX-A1B2C3D4E5F6 --amount 18000 --memo "점심 
 ### 🟡 거래 삭제  
 
 ```bash
-python3 -m budget_app delete --id TX-A1B2C3D4E5F6  
+uv run python -m budget_app delete --id TX-A1B2C3D4E5F6  
 ```
 
 없는 id면 원인과 해결 힌트를 출력하고 0이 아닌 종료 코드로 끝난다. 삭제도 임시 파일과 원자적 교체 방식을 사용한다.  
@@ -178,7 +192,7 @@ python3 -m budget_app delete --id TX-A1B2C3D4E5F6
 ### 🟡 월별 요약  
 
 ```bash
-python3 -m budget_app summary --month 2026-08 --top 3  
+uv run python -m budget_app summary --month 2026-08 --top 3  
 ```
 
 - 총수입  
@@ -191,8 +205,8 @@ python3 -m budget_app summary --month 2026-08 --top 3
 ### 🟡 예산 설정·조회  
 
 ```bash
-python3 -m budget_app budget set --month 2026-08 --amount 500000  
-python3 -m budget_app budget get --month 2026-08  
+uv run python -m budget_app budget set --month 2026-08 --amount 500000  
+uv run python -m budget_app budget get --month 2026-08  
 ```
 
 예산은 0보다 큰 정수만 저장한다. 같은 월을 다시 설정하면 새 금액으로 수정된다.  
@@ -200,9 +214,9 @@ python3 -m budget_app budget get --month 2026-08
 ### 🟡 카테고리 관리  
 
 ```bash
-python3 -m budget_app category list  
-python3 -m budget_app category add --name education  
-python3 -m budget_app category remove --name education  
+uv run python -m budget_app category list  
+uv run python -m budget_app category add --name education  
+uv run python -m budget_app category remove --name education  
 ```
 
 `--name`을 생략하면 대화형으로 이름을 묻는다. 거래가 사용 중인 카테고리는 삭제하지 않는다.  
@@ -239,7 +253,7 @@ date,type,category,amount,memo,tags
 ### 🟡 가져오기  
 
 ```bash
-python3 -m budget_app import --from ./import.csv  
+uv run python -m budget_app import --from ./import.csv  
 ```
 
 - 정상 줄은 즉시 새 id를 만들어 저장한다.  
@@ -252,13 +266,13 @@ python3 -m budget_app import --from ./import.csv
 월 조건:  
 
 ```bash
-python3 -m budget_app export --out ./export-2026-08.csv --month 2026-08  
+uv run python -m budget_app export --out ./export-2026-08.csv --month 2026-08  
 ```
 
 날짜 범위 조건:  
 
 ```bash
-python3 -m budget_app export --out ./export-range.csv --from 2026-08-01 --to 2026-08-31  
+uv run python -m budget_app export --out ./export-range.csv --from 2026-08-01 --to 2026-08-31  
 ```
 
 - `--month` 또는 `--from`과 `--to`가 반드시 필요하다.  
@@ -271,7 +285,8 @@ python3 -m budget_app export --out ./export-range.csv --from 2026-08-01 --to 202
 
 | 파일 / 패키지 | 책임 |  
 | --- | --- |
-| `budget_app/__main__.py` | `python3 -m budget_app` 프로그램 실행 진입점 |  
+| `pyproject.toml` | 프로젝트 메타데이터 및 Python 3.10 이상 요구조건 정의 파일 |  
+| `budget_app/__main__.py` | `uv run python -m budget_app` 프로그램 실행 진입점 |  
 | `budget_app/constants/` | 카테고리, 날짜규칙, 저장소 파일명(`repository_files`), 화면제한(`view_limits`), 에러메시지 보관 패키지 |  
 | `budget_app/models.py` | `Transaction`, `MonthlySummary` 데이터 구조 |  
 | `budget_app/validators.py` | 날짜·월·금액·타입·카테고리·태그 검증 |  
@@ -292,7 +307,7 @@ CRUD = Create, Read, Update, Delete, 생성·조회·수정·삭제를 뜻한다
 전체 테스트 실행:  
 
 ```bash
-python3 -m unittest discover -s tests -v  
+uv run python -m unittest discover -s tests -v  
 ```
 
 - `unittest` = unit test, Python 표준 테스트 도구다.  
