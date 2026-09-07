@@ -6,11 +6,10 @@ import tempfile  # tempfile은 안전한 임시 파일을 만드는 표준 라�
 from pathlib import Path  # Path는 파일과 폴더 경로를 객체로 다루게 해 준다.
 from typing import Any, Dict, Iterable, Iterator, List, Optional  # 함수가 주고받는 값의 자료형을 표시한다.
 
+from budget_app.constants import DEFAULT_CATEGORIES  # 첫 실행 때 만들 기본 카테고리 상수를 가져온다.
 from budget_app.exceptions import ConflictError, DataFileError  # 중복과 파일 손상을 사용자에게 설명할 오류다.
 from budget_app.models import Transaction  # 저장하고 읽을 거래 데이터 클래스를 가져온다.
 from budget_app.validators import validate_amount, validate_category_name, validate_month  # 카테고리와 예산 파일을 검사할 함수다.
-
-DEFAULT_CATEGORIES = ("food", "transport", "rent", "salary", "utilities", "health", "leisure", "other")  # 첫 실행 때 만들 기본 카테고리다.
 
 
 def _json_line(record: Dict[str, Any]) -> str:  # 사전 한 개를 JSONL 한 줄로 바꾼다.

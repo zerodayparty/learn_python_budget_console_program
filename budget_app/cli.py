@@ -5,6 +5,12 @@ import sys  # sys는 명령줄 인자 목록을 직접 확인하기 위해 가�
 from pathlib import Path  # Path는 사용자가 입력한 파일과 폴더 경로를 다루는 도구다.
 from typing import Callable, List, Optional  # 함수의 입력과 출력 자료형을 표시한다.
 
+from budget_app.constants import (  # 공통 상수 모듈에서 CLI 기본값을 가져온다.
+    DEFAULT_DATA_DIR,  # 기본 데이터 저장 폴더 이름이다.
+    DEFAULT_LIST_LIMIT,  # 목록 출력 시 기본 개수다.
+    DEFAULT_SUMMARY_TOP,  # 요약 시 상위 카테고리 기본 개수다.
+    TRANSACTION_TYPES,  # 거래 허용 타입 튜플이다.
+)  # 상수 가져오기를 끝낸다.
 from budget_app.decorators import handle_cli_errors  # 공통 오류 처리를 붙이는 데코레이터를 가져온다.
 from budget_app.exceptions import ConflictError, NotFoundError, ValidationError  # 대화형 입력에서 오류를 보여 주고 다시 받을 때 사용한다.
 from budget_app.models import MonthlySummary, Transaction  # 거래와 요약을 화면 형식으로 출력하기 위해 가져온다.
@@ -28,7 +34,7 @@ def build_parser() -> argparse.ArgumentParser:  # 모든 명령과 --help 정보
         prog="python -m budget_app",  # --help 첫 줄에 실제 실행 명령을 표시한다.
         description="JSONL 파일 기반 가계부 콘솔 프로그램",  # 프로그램의 목적을 한 줄로 설명한다.
     )  # 최상위 해석기 만들기를 끝낸다.
-    parser.add_argument("--data-dir", default="data", help="저장 폴더 경로 (기본값: ./data)")  # 세 저장 파일을 둘 폴더를 바꿀 수 있게 한다.
+    parser.add_argument("--data-dir", default=DEFAULT_DATA_DIR, help=f"저장 폴더 경로 (기본값: ./{DEFAULT_DATA_DIR})")  # 세 저장 파일을 둘 폴더를 바꿀 수 있게 한다.
     commands = parser.add_subparsers(dest="command", required=True, title="명령")  # 반드시 하나의 하위 명령을 선택하게 한다.
 
     commands.add_parser(  # add 명령과 add --help 설명을 등록한다.
@@ -42,7 +48,7 @@ def build_parser() -> argparse.ArgumentParser:  # 모든 명령과 --help 정보
         help="최신순 거래 목록",  # 전체 도움말에 보일 짧은 설명을 정한다.
         description="JSONL 파일 끝에서부터 거래를 한 줄씩 읽는다.",  # list 도움말에 보일 상세 설명을 정한다.
     )  # list 명령 해석기 만들기를 끝낸다.
-    list_parser.add_argument("--limit", type=_positive_integer, default=10, help="출력할 최대 개수 (기본값: 10)")  # 최신 거래 출력 개수를 받는다.
+    list_parser.add_argument("--limit", type=_positive_integer, default=DEFAULT_LIST_LIMIT, help=f"출력할 최대 개수 (기본값: {DEFAULT_LIST_LIMIT})")  # 최신 거래 출력 개수를 받는다.
 
     search_parser = commands.add_parser(  # search 명령 전용 해석기를 만든다.
         "search",  # 터미널에서 사용할 명령 이름을 search로 정한다.
@@ -52,7 +58,7 @@ def build_parser() -> argparse.ArgumentParser:  # 모든 명령과 --help 정보
     search_parser.add_argument("--from", dest="date_from", help="시작 날짜 YYYY-MM-DD")  # 검색 시작 날짜를 받는다.
     search_parser.add_argument("--to", dest="date_to", help="종료 날짜 YYYY-MM-DD")  # 검색 종료 날짜를 받는다.
     search_parser.add_argument("--category", help="카테고리 이름")  # 검색 카테고리를 받는다.
-    search_parser.add_argument("--type", dest="transaction_type", choices=["income", "expense"], help="거래 타입")  # 검색 거래 타입을 받는다.
+    search_parser.add_argument("--type", dest="transaction_type", choices=list(TRANSACTION_TYPES), help="거래 타입")  # 검색 거래 타입을 받는다.
     search_parser.add_argument("--q", dest="query", help="메모에 포함된 글자")  # 메모 검색어를 받는다.
     search_parser.add_argument("--tag", help="포함된 태그")  # 태그 조건을 받는다.
 
@@ -62,7 +68,7 @@ def build_parser() -> argparse.ArgumentParser:  # 모든 명령과 --help 정보
         description="월 합계와 지출 카테고리 TOP N을 계산한다.",  # summary 도움말에 보일 상세 설명을 정한다.
     )  # summary 명령 해석기 만들기를 끝낸다.
     summary_parser.add_argument("--month", required=True, help="계산할 월 YYYY-MM")  # 반드시 계산 대상 월을 받는다.
-    summary_parser.add_argument("--top", type=_positive_integer, default=3, help="출력할 지출 카테고리 개수 (기본값: 3)")  # 상위 카테고리 개수를 받는다.
+    summary_parser.add_argument("--top", type=_positive_integer, default=DEFAULT_SUMMARY_TOP, help=f"출력할 지출 카테고리 개수 (기본값: {DEFAULT_SUMMARY_TOP})")  # 상위 카테고리 개수를 받는다.
 
     budget_parser = commands.add_parser(  # budget 명령 전용 해석기를 만든다.
         "budget",  # 터미널에서 사용할 명령 이름을 budget으로 정한다.
@@ -101,7 +107,7 @@ def build_parser() -> argparse.ArgumentParser:  # 모든 명령과 --help 정보
     )  # update 명령 해석기 만들기를 끝낸다.
     update_parser.add_argument("--id", required=False, help="수정할 거래 id (생략 시 대화형 입력)")  # 수정 대상 id를 받으며 생략 시 대화형으로 묻는다.
     update_parser.add_argument("--date", help="새 날짜 YYYY-MM-DD")  # 선택 수정 날짜를 받는다.
-    update_parser.add_argument("--type", dest="transaction_type", choices=["income", "expense"], help="새 거래 타입")  # 선택 수정 타입을 받는다.
+    update_parser.add_argument("--type", dest="transaction_type", choices=list(TRANSACTION_TYPES), help="새 거래 타입")  # 선택 수정 타입을 받는다.
     update_parser.add_argument("--category", help="새 카테고리")  # 선택 수정 카테고리를 받는다.
     update_parser.add_argument("--amount", help="새 양의 정수 금액")  # 선택 수정 금액을 받는다.
     update_parser.add_argument("--memo", help="새 메모이며 빈 문자열이면 삭제")  # 선택 수정 메모를 받는다.
@@ -185,6 +191,8 @@ def _prompt_update_interactive(service: BudgetService, transaction_id: Optional[
     )  # 수정 실행 결과를 돌려준다.
 
 
+
+
 def _print_transaction(transaction: Transaction) -> None:  # 거래 한 건을 읽기 쉬운 한 줄로 출력한다.
     tags = ",".join(transaction.tags)  # 태그 목록을 쉼표로 이어 붙인 문자열로 만든다.
     columns = [  # 화면에 출력할 거래 값을 순서대로 담는다.
@@ -198,6 +206,8 @@ def _print_transaction(transaction: Transaction) -> None:  # 거래 한 건을 �
     ]  # 거래 출력 열 만들기를 끝낸다.
     line = " | ".join(columns)  # 각 열 사이에 세로 구분선을 넣어 한 줄로 연결한다.
     print(line)  # 완성한 거래 한 줄을 화면에 출력한다.
+
+
 
 
 def _print_summary(summary: MonthlySummary) -> None:  # 월별 계산 결과를 요구사항 순서로 출력한다.
@@ -217,11 +227,15 @@ def _print_summary(summary: MonthlySummary) -> None:  # 월별 계산 결과를 
             print(f"{rank}) {category} {amount}원")  # 순위, 카테고리, 합계를 한 줄로 출력한다.
 
 
+
+
 def _build_service(data_dir: Path) -> BudgetService:  # 한 저장 폴더를 사용하는 서비스 객체를 만든다.
     transactions = TransactionRepository(data_dir)  # transactions.jsonl 파일을 만들고 거래 저장소를 준비한다.
     categories = CategoryStore(data_dir)  # categories.jsonl과 기본 카테고리를 준비한다.
     budgets = BudgetStore(data_dir)  # budgets.jsonl 파일을 만들고 예산 저장소를 준비한다.
     return BudgetService(transactions, categories, budgets)  # 세 저장소를 연결한 서비스 객체를 돌려준다.
+
+
 
 
 @handle_cli_errors  # 아래 모든 명령에 스택트레이스 없는 공통 오류 처리를 실제 적용한다.
@@ -295,8 +309,10 @@ def execute(args: argparse.Namespace) -> int:  # argparse가 해석한 명령 �
         service.remove_category(name)  # 사용 중인지 확인하고 안전한 경우만 삭제한다.
         print(f"[삭제 완료] category={name.strip()}")  # 삭제한 카테고리 이름을 출력한다.
         return 0  # 정상 종료 코드를 돌려준다.
+    
     if args.command == "interactive":  # 사용자가 interactive 명령을 선택했는지 확인한다.
         return run_interactive_console(Path(args.data_dir))  # 선택한 데이터 폴더로 대화형 콘솔을 실행한다.
+    
     if args.command == "update":  # 사용자가 update 명령을 선택했는지 확인한다.
         has_field_options = any(  # 사용자가 커맨드라인 옵션으로 수정 필드를 하나라도 넘겼는지 검사한다.
             opt is not None  # 해당 옵션 값이 존재하는지 확인한다.
@@ -318,16 +334,19 @@ def execute(args: argparse.Namespace) -> int:  # argparse가 해석한 명령 �
             transaction = _prompt_update_interactive(service, args.id)  # 대화형 프롬프트로 거래를 수정한다.
         print(f"[수정 완료] id={transaction.id}")  # 수정 성공과 거래 id를 출력한다.
         return 0  # 정상 종료 코드를 돌려준다.
+    
     if args.command == "delete":  # 사용자가 delete 명령을 선택했는지 확인한다.
         service.delete_transaction(args.id)  # id가 같은 거래를 임시 파일 교체 방식으로 삭제한다.
         print(f"[삭제 완료] id={args.id}")  # 삭제 성공과 거래 id를 출력한다.
         return 0  # 정상 종료 코드를 돌려준다.
+    
     if args.command == "import":  # 사용자가 import 명령을 선택했는지 확인한다.
         imported, skipped, errors = service.import_csv(Path(args.source))  # CSV를 읽고 저장 수와 건너뜀 이유를 받는다.
         for error in errors:  # 건너뛴 각 CSV 줄의 이유를 한 건씩 꺼낸다.
             print(f"[건너뜀] {error}")  # 줄 번호와 잘못된 이유를 출력한다.
         print(f"[완료] imported={imported}, skipped={skipped}")  # 최종 처리 건수를 요구사항 형식으로 출력한다.
         return 0  # 파일 전체 처리가 끝났으므로 정상 종료 코드를 돌려준다.
+    
     if args.command == "export":  # 사용자가 export 명령을 선택했는지 확인한다.
         exported = service.export_csv(  # 조건에 맞는 거래를 CSV로 저장하고 개수를 받는다.
             output=Path(args.out),  # 만들 CSV 파일 경로를 전달한다.
@@ -337,18 +356,26 @@ def execute(args: argparse.Namespace) -> int:  # argparse가 해석한 명령 �
         )  # CSV 내보내기 요청 전달을 끝낸다.
         print(f"[완료] {args.out} ({exported} records)")  # 파일 경로와 처리 건수를 출력한다.
         return 0  # 정상 종료 코드를 돌려준다.
+    
     message = "지원하지 않는 명령이다."  # 모든 분기에 없는 경우 보여 줄 오류 원인을 저장한다.
+    
     hint = "--help로 사용할 수 있는 명령을 확인한다."  # 사용자가 명령 목록을 확인하는 해결 방법을 저장한다.
+    
     raise ValidationError(message, hint)  # 저장한 원인과 힌트로 명확한 오류를 만든다.
+
+
 
 
 def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 선택하며 계속 작업하는 대화형 콘솔을 실행한다.
     service = _build_service(data_dir)  # 지정된 데이터 폴더로 세 파일과 서비스를 초기화한다.
+
     print("\n" + "=" * 56)  # 상단 구분 장식선을 출력한다.
     print("  💰 파일 기반 가계부 콘솔 프로그램 (대화형 콘솔 모드)")  # 프로그램 환영 제목을 출력한다.
     print("=" * 56)  # 하단 구분 장식선을 출력한다.
+    
     while True:  # 사용자가 종료를 선택할 때까지 메뉴 루프를 무한 반복한다.
-        print("\n[가계부 메인 메뉴]")  # 메인 메뉴 제목을 출력한다.
+        
+        print("\n\n🔥🔥🔥🔥🔥[가계부 메인 메뉴]🔥🔥🔥🔥🔥")  # 메인 메뉴 제목을 출력한다.
         print("  1. 거래 추가 (add)")  # 1번 메뉴 항목을 출력한다.
         print("  2. 최근 거래 목록 (list)")  # 2번 메뉴 항목을 출력한다.
         print("  3. 조건별 거래 검색 (search)")  # 3번 메뉴 항목을 출력한다.
@@ -359,17 +386,22 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
         print("  8. 카테고리 관리 (category)")  # 8번 메뉴 항목을 출력한다.
         print("  9. CSV 내보내기 / 가져오기 (export / import)")  # 9번 메뉴 항목을 출력한다.
         print("  q. 프로그램 종료 (quit)")  # 종료 메뉴 항목을 출력한다.
+
         try:  # 사용자 입력을 안전하게 받기 위한 예외 감지 블록을 연다.
             choice = input("\n메뉴 번호를 선택한다: ").strip().lower()  # 사용자로부터 원하는 메뉴 번호를 입력받는다.
-        except (EOFError, KeyboardInterrupt):  # Ctrl+D 또는 Ctrl+C 등의 강제 종료 신호가 들어왔는지 확인한다.
-            print("\n프로그램을 종료한다.")  # 종료 안내 문구를 출력한다.
+        
+        except (EOFError, KeyboardInterrupt):  # 🔥 Ctrl+D 또는 Ctrl+C 등의 강제 종료 신호가 들어왔는지 확인한다.
+            print("\n[강제종료 대응] 사용자의 강제종료로 인해 프로그램을 종료되었습니다.")  # 종료 안내 문구를 출력한다.
             return 0  # 정상 종료 코드를 돌려준다.
+    
         if choice in ["q", "quit", "exit"]:  # 사용자가 종료 메뉴를 선택했는지 확인한다.
             print("가계부 프로그램을 종료한다. 안녕히 가세요!")  # 친절한 종료 인사를 출력한다.
             return 0  # 정상 종료 코드를 돌려준다.
+    
         try:  # 선택한 기능 실행 중 오류가 나도 메뉴판으로 안전하게 돌아오기 위한 감지 블록을 연다.
+        
             if choice == "1":  # 1번 거래 추가를 선택한 경우다.
-                print("\n--- [거래 추가] ---")  # 작업 소제목을 출력한다.
+                print("\n⏬ [거래 추가] ⏬")  # 작업 소제목을 출력한다.
                 date = str(_prompt_until_valid("날짜(YYYY-MM-DD): ", validate_date))  # 날짜를 대화형으로 받는다.
                 transaction_type = str(_prompt_until_valid("타입(income/expense): ", validate_transaction_type))  # 타입을 대화형으로 받는다.
                 category = _prompt_registered_category(service)  # 등록된 카테고리를 대화형으로 받는다.
@@ -378,18 +410,20 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
                 tags = input("태그(쉼표로 구분, 선택): ")  # 태그를 대화형으로 받는다.
                 tx = service.add_transaction(date, transaction_type, category, amount, memo, tags)  # 거래를 서비스에 저장한다.
                 print(f"[저장 완료] id={tx.id}")  # 성공 메시지와 거래 고유 id를 출력한다.
+            
             elif choice == "2":  # 2번 거래 목록 조회를 선택한 경우다.
-                print("\n--- [최근 거래 목록] ---")  # 작업 소제목을 출력한다.
-                raw_limit = input("출력 개수 (기본값: 10, 엔터 시 10): ").strip()  # 출력 개수를 묻는다.
-                limit = int(raw_limit) if raw_limit.isdigit() and int(raw_limit) > 0 else 10  # 숫자가 아니면 기본값 10을 사용한다.
+                print("\n⏬ [최근 거래 목록] ⏬")  # 작업 소제목을 출력한다.
+                raw_limit = input(f"출력 개수 (기본값: {DEFAULT_LIST_LIMIT}, 엔터 시 {DEFAULT_LIST_LIMIT}): ").strip()  # 출력 개수를 묻는다.
+                limit = int(raw_limit) if raw_limit.isdigit() and int(raw_limit) > 0 else DEFAULT_LIST_LIMIT  # 숫자가 아니면 기본값을 사용한다.
                 found = False  # 거래 출력 여부 플래그를 준비한다.
                 for tx in service.list_transactions(limit):  # 제너레이터에서 거래를 하나씩 꺼낸다.
                     found = True  # 거래가 존재함을 표시한다.
                     _print_transaction(tx)  # 거래 정보를 출력한다.
                 if not found:  # 거래가 하나도 없었는지 확인한다.
                     print("거래 데이터 없음")  # 데이터 없음 안내를 출력한다.
+            
             elif choice == "3":  # 3번 조건별 검색을 선택한 경우다.
-                print("\n--- [조건별 거래 검색] (생략하려면 엔터를 누른다) ---")  # 작업 소제목을 출력한다.
+                print("\n⏬ [조건별 거래 검색] (생략하려면 엔터를 누른다) ⏬")  # 작업 소제목을 출력한다.
                 q_date_from = input("시작 날짜(YYYY-MM-DD): ").strip() or None  # 시작 날짜 조건을 받는다.
                 q_date_to = input("종료 날짜(YYYY-MM-DD): ").strip() or None  # 종료 날짜 조건을 받는다.
                 q_category = input("카테고리: ").strip() or None  # 카테고리 조건을 받는다.
@@ -402,29 +436,33 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
                     _print_transaction(tx)  # 거래를 출력한다.
                 if not found:  # 검색 결과가 없는지 확인한다.
                     print("검색 결과 없음")  # 검색 결과 없음 문구를 출력한다.
+            
             elif choice == "4":  # 4번 거래 수정을 선택한 경우다.
-                print("\n--- [거래 수정 (대화형)] ---")  # 작업 소제목을 출력한다.
+                print("\n⏬ [거래 수정 (대화형)] ⏬")  # 작업 소제목을 출력한다.
                 tx = _prompt_update_interactive(service)  # 대화형 프롬프트 함수를 호출한다.
                 print(f"[수정 완료] id={tx.id}")  # 수정 성공 메시지를 출력한다.
+            
             elif choice == "5":  # 5번 거래 삭제를 선택한 경우다.
-                print("\n--- [거래 삭제] ---")  # 작업 소제목을 출력한다.
+                print("\n⏬ [거래 삭제] ⏬")  # 작업 소제목을 출력한다.
                 target_id = input("삭제할 거래 id: ").strip()  # 삭제할 id를 받는다.
                 if target_id:  # id가 입력되었는지 확인한다.
                     service.delete_transaction(target_id)  # 안전하게 거래를 삭제한다.
                     print(f"[삭제 완료] id={target_id}")  # 삭제 완료 메시지를 출력한다.
                 else:  # id가 비어 있는 경우다.
                     print("[오류] 삭제할 거래 id를 입력해야 한다.")  # 안내를 출력한다.
+            
             elif choice == "6":  # 6번 월별 요약을 선택한 경우다.
-                print("\n--- [월별 요약 및 예산] ---")  # 작업 소제목을 출력한다.
+                print("\n⏬ [월별 요약 및 예산] ⏬")  # 작업 소제목을 출력한다.
                 month = input("조회할 월(YYYY-MM): ").strip()  # 조회할 월을 받는다.
                 if month:  # 월이 입력되었는지 확인한다.
-                    raw_top = input("지출 상위 카테고리 개수 (기본값: 3): ").strip()  # 상위 개수를 받는다.
-                    top = int(raw_top) if raw_top.isdigit() and int(raw_top) > 0 else 3  # 기본값을 정한다.
+                    raw_top = input(f"지출 상위 카테고리 개수 (기본값: {DEFAULT_SUMMARY_TOP}): ").strip()  # 상위 개수를 받는다.
+                    top = int(raw_top) if raw_top.isdigit() and int(raw_top) > 0 else DEFAULT_SUMMARY_TOP  # 기본값을 정한다.
                     _print_summary(service.monthly_summary(month, top))  # 요약을 출력한다.
                 else:  # 월이 비어 있는 경우다.
                     print("[오류] 조회할 월(YYYY-MM)을 입력해야 한다.")  # 안내를 출력한다.
+            
             elif choice == "7":  # 7번 예산 관리를 선택한 경우다.
-                print("\n--- [월 예산 관리] ---")  # 작업 소제목을 출력한다.
+                print("\n⏬ [월 예산 관리] ⏬")  # 작업 소제목을 출력한다.
                 b_action = input("작업 선택 (1: 예산 설정, 2: 예산 조회): ").strip()  # 서브 작업을 받는다.
                 b_month = input("대상 월(YYYY-MM): ").strip()  # 대상 월을 받는다.
                 if b_action == "1":  # 예산 설정을 선택한 경우다.
@@ -439,8 +477,9 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
                         print(f"{b_month}: 예산 {saved_amt}원")  # 조회 결과를 출력한다.
                 else:  # 잘못된 번호를 누른 경우다.
                     print("잘못된 선택이다.")  # 안내를 출력한다.
+            
             elif choice == "8":  # 8번 카테고리 관리를 선택한 경우다.
-                print("\n--- [카테고리 관리] ---")  # 작업 소제목을 출력한다.
+                print("\n⏬ [카테고리 관리] ⏬")  # 작업 소제목을 출력한다.
                 c_action = input("작업 선택 (1: 목록, 2: 추가, 3: 삭제): ").strip()  # 서브 작업을 받는다.
                 if c_action == "1":  # 목록 조회를 선택한 경우다.
                     cats = service.list_categories()  # 카테고리 목록을 가져온다.
@@ -456,8 +495,9 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
                     print(f"[삭제 완료] category={c_name}")  # 완료 메시지를 출력한다.
                 else:  # 잘못된 번호를 누른 경우다.
                     print("잘못된 선택이다.")  # 안내를 출력한다.
+            
             elif choice == "9":  # 9번 CSV 관리를 선택한 경우다.
-                print("\n--- [CSV 파일 처리] ---")  # 작업 소제목을 출력한다.
+                print("\n⏬ [CSV 파일 처리] ⏬")  # 작업 소제목을 출력한다.
                 csv_action = input("작업 선택 (1: 가져오기(import), 2: 내보내기(export)): ").strip()  # 서브 작업을 받는다.
                 if csv_action == "1":  # 가져오기를 선택한 경우다.
                     csv_source = input("가져올 CSV 파일 경로: ").strip()  # 파일 경로를 받는다.
@@ -472,11 +512,15 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
                     print(f"[완료] {csv_target} ({count} records)")  # 완료 메시지를 출력한다.
                 else:  # 잘못된 번호를 누른 경우다.
                     print("잘못된 선택이다.")  # 안내를 출력한다.
+            
             else:  # 메뉴에 없는 번호를 입력한 경우다.
                 print("1부터 9 또는 q를 입력해야 한다.")  # 올바른 선택 안내를 출력한다.
+        
         except (ValidationError, NotFoundError, ConflictError) as error:  # 서비스에서 발생한 비즈니스 검증 오류를 잡는다.
             print(f"[오류] {error.message}")  # 스택트레이스 없이 오류 메시지를 출력한다.
             print(f"[힌트] {error.hint}")  # 해결 힌트를 친절히 출력한다.
+
+
 
 
 def main(argv: Optional[List[str]] = None) -> int:  # 터미널 또는 테스트에서 프로그램을 시작하는 진입 함수다.

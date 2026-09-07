@@ -16,9 +16,10 @@ from budget_app.validators import (  # 입력값을 종류별로 검사하는 �
     validate_month,  # 월이 YYYY-MM 형식의 실제 월인지 검사한다.
     validate_transaction_type,  # 거래 타입이 income 또는 expense인지 검사한다.
 )  # 입력값 검사 함수 가져오기를 끝낸다.
-
-CSV_COLUMNS = ["date", "type", "category", "amount", "memo", "tags"]  # import와 export가 공통으로 사용하는 CSV 열 순서다.
-CSV_REQUIRED_COLUMNS = {"date", "type", "category", "amount"}  # CSV에서 반드시 있어야 하는 열 이름이다.
+from budget_app.constants import (  # 공통 상수 모듈에서 CSV 열 규칙을 가져온다.
+    CSV_COLUMNS,  # CSV 내보내기/가져오기 열 순서다.
+    CSV_REQUIRED_COLUMNS,  # CSV 필수 열 목록이다.
+)  # CSV 상수 가져오기를 끝낸다.
 
 
 def _category_expense_sort_key(item: Tuple[str, int]) -> Tuple[int, str]:  # 카테고리 지출을 정렬할 기준을 만든다.
@@ -241,17 +242,29 @@ class BudgetService:  # 여러 저장소를 연결해 가계부 규칙을 실행
         if not self.categories.remove(cleaned):  # 사용 중이 아니지만 등록 목록에도 없는지 검사한다.
             raise NotFoundError(f"category={cleaned} 카테고리가 없다.", "category list로 등록된 이름을 확인한다.")  # 목록 확인 방법을 알린다.
 
+
+
     def import_csv(self, source: Path) -> Tuple[int, int, List[str]]:  # CSV 거래를 검사하면서 한 건씩 가져온다.
         imported = 0  # 정상적으로 저장한 거래 개수를 0에서 시작한다.
         skipped = 0  # 잘못되어 건너뛴 거래 개수를 0에서 시작한다.
         errors: List[str] = []  # 건너뛴 줄의 이유를 담을 빈 목록을 만든다.
+        
+        # BOM(Byte Order Mark)이란 무엇인가?
+        # BOM = Byte Order Mark (바이트 순서 표식)
+            # Byte = 컴퓨터가 데이터를 다루는 기본 8자리 묶음 단위
+            # Order = 순서 (저장 순서)
+            # Mark = 표식 (도장, 꼬리표)
+
+        # utf-8-sig = BOM 도장을 자동으로 제거하고 순수 데이터만 정상 읽기
         with source.open("r", encoding="utf-8-sig", newline="") as csv_file:  # UTF-8과 선택적 BOM을 지원하는 CSV 읽기 모드로 연다.
             reader = csv.DictReader(csv_file)  # 헤더 이름을 열쇠로 사용하는 사전 형태로 한 줄씩 읽는다.
             headers = set(reader.fieldnames or [])  # 파일에 실제로 있는 헤더 이름을 집합으로 만든다.
             missing = CSV_REQUIRED_COLUMNS - headers  # 반드시 필요한데 빠진 헤더를 계산한다.
+        
             if missing:  # 빠진 필수 헤더가 하나 이상 있는지 검사한다.
                 missing_text = ", ".join(sorted(missing))  # 빠진 이름들을 읽기 좋은 쉼표 문자열로 만든다.
                 raise ValidationError(f"CSV 필수 헤더가 없다: {missing_text}", "date,type,category,amount 헤더를 포함한다.")  # 필요한 헤더를 알린다.
+        
             for line_number, row in enumerate(reader, start=2):  # 헤더 다음인 2번 줄부터 번호를 붙여 한 건씩 읽는다.
                 try:  # 현재 CSV 줄의 검사와 저장을 시도한다.
                     self.add_transaction(  # 기존 add 규칙을 재사용해서 CSV 거래 한 건을 저장한다.
@@ -266,7 +279,10 @@ class BudgetService:  # 여러 저장소를 연결해 가계부 규칙을 실행
                 except BudgetAppError as error:  # 현재 줄의 예상 가능한 입력 오류를 잡는다.
                     skipped += 1  # 건너뛴 개수에 1을 더한다.
                     errors.append(f"line={line_number}: {error.message}")  # 줄 번호와 원인을 기록한다.
+        
         return imported, skipped, errors  # 저장 수, 건너뜀 수, 이유 목록을 함께 돌려준다.
+
+
 
     def export_csv(  # 조건에 맞는 거래를 고정 스키마 CSV 파일로 내보낸다.
         self,  # 현재 서비스 객체 자신을 뜻한다.
@@ -275,6 +291,7 @@ class BudgetService:  # 여러 저장소를 연결해 가계부 규칙을 실행
         date_from: Optional[str] = None,  # 시작 날짜 조건이며 범위 사용 때 필요하다.
         date_to: Optional[str] = None,  # 종료 날짜 조건이며 범위 사용 때 필요하다.
     ) -> int:  # 실제로 CSV에 쓴 거래 개수를 돌려준다.
+        
         if not month and not date_from and not date_to:  # 내보내기 조건이 하나도 없는지 검사한다.
             raise ValidationError("export 조건이 없다.", "--month 또는 --from과 --to를 입력한다.")  # 필요한 조건을 알린다.
         if bool(date_from) != bool(date_to):  # 시작과 종료 날짜 중 하나만 입력했는지 검사한다.
@@ -292,8 +309,12 @@ class BudgetService:  # 여러 저장소를 연결해 가계부 규칙을 실행
             message = "내보내기 시작 날짜가 종료 날짜보다 늦다."  # 사용자에게 보여 줄 날짜 오류 원인을 저장한다.
             hint = "--from 날짜를 --to 날짜보다 같거나 이르게 입력한다."  # 올바른 내보내기 날짜 순서를 저장한다.
             raise ValidationError(message, hint)  # 저장한 원인과 힌트로 입력 오류를 발생시킨다.
+        
         output.parent.mkdir(parents=True, exist_ok=True)  # 출력 파일의 부모 폴더가 없으면 자동으로 만든다.
+        
         exported = 0  # CSV에 쓴 거래 개수를 0에서 시작한다.
+
+
         with output.open("w", encoding="utf-8", newline="") as csv_file:  # UTF-8 CSV 새 파일을 쓰기 모드로 연다.
             writer = csv.DictWriter(csv_file, fieldnames=CSV_COLUMNS)  # 고정 열 순서를 사용하는 CSV 작성기를 만든다.
             writer.writeheader()  # 첫 줄에 고정 CSV 헤더를 쓴다.
