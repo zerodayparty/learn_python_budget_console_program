@@ -37,7 +37,7 @@ credentials/
 private/
 keys/
 _practice
-_complete
+_complete_summary
 
 service-account*.json
 google-credentials*.json
