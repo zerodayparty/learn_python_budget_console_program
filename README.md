@@ -269,15 +269,16 @@ python3 -m budget_app export --out ./export-range.csv --from 2026-08-01 --to 202
 
 ## 🟢 6. 코드 구조와 책임  
 
-| 파일 | 책임 |  
+| 파일 / 패키지 | 책임 |  
 | --- | --- |
+| `budget_app/__main__.py` | `python3 -m budget_app` 프로그램 실행 진입점 |  
+| `budget_app/constants/` | 카테고리, 날짜규칙, 저장소 파일명(`repository_files`), 화면제한(`view_limits`), 에러메시지 보관 패키지 |  
 | `budget_app/models.py` | `Transaction`, `MonthlySummary` 데이터 구조 |  
 | `budget_app/validators.py` | 날짜·월·금액·타입·카테고리·태그 검증 |  
 | `budget_app/repositories.py` | JSONL 스트리밍, 추가, 임시 파일, 원자적 교체 |  
 | `budget_app/services.py` | CRUD, 검색, 요약, 예산, 카테고리, CSV 업무 규칙 |  
-| `budget_app/decorators.py` | 공통 오류 출력과 종료 코드 |  
-| `budget_app/cli.py` | 일회성 CLI + 대화형 콘솔(REPL) 메뉴 루프 |  
-| `budget_app/__main__.py` | `python3 -m budget_app` 시작 지점 |  
+| `budget_app/exceptions.py` | 사용자 정의 오류 및 해결 힌트 클래스 |  
+| `budget_app/cli/` | 명령 해석기(`parser.py`), 실행기(`app.py`), 대화형 메뉴(`interactive.py`), 뷰(`views.py`) 패키지 |  
 | `tests/test_budget_app.py` | 12개 필수 기능 및 대화형 자동 회귀 테스트 |  
 
 CLI = Command-Line Interface, 터미널의 글자 명령으로 프로그램을 조작하는 방식이다.  
