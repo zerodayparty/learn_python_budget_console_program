@@ -6,7 +6,10 @@ import tempfile  # tempfile은 안전한 임시 파일을 만드는 표준 라�
 from pathlib import Path  # Path는 파일과 폴더 경로를 객체로 다루게 해 준다.
 from typing import Any, Dict, Iterable, Iterator, List, Optional  # 함수가 주고받는 값의 자료형을 표시한다.
 
-from budget_app.constants import DEFAULT_CATEGORIES  # 첫 실행 때 만들 기본 카테고리 상수를 가져온다.
+from budget_app.constants import (  # 첫 실행 기본 카테고리와 에러 메시지를 가져온다.
+    DEFAULT_CATEGORIES,  # 기본 카테고리 묶음이다.
+    ErrorMessages,  # 오류 메시지 및 해결 힌트 모음 클래스다.
+)  # 상수 가져오기를 마친다.
 from budget_app.exceptions import ConflictError, DataFileError  # 중복과 파일 손상을 사용자에게 설명할 오류다.
 from budget_app.models import Transaction  # 저장하고 읽을 거래 데이터 클래스를 가져온다.
 from budget_app.validators import validate_amount, validate_category_name, validate_month  # 카테고리와 예산 파일을 검사할 함수다.
@@ -43,13 +46,9 @@ def _parse_json_line(line: str, path: Path) -> Dict[str, Any]:  # JSONL 한 줄�
     try:  # JSON 해석을 시도한다.
         parsed = json.loads(line)  # JSON 문자열을 Python 값으로 변환한다.
     except json.JSONDecodeError as error:  # 문법이 깨진 JSON이면 이 오류가 발생한다.
-        message = f"{path.name} 파일에 손상된 JSONL 줄이 있다."  # 사용자에게 보여 줄 파일 오류 원인을 저장한다.
-        hint = "파일을 UTF-8 JSONL 형식으로 수정하거나 백업으로 복구한다."  # 사용자에게 보여 줄 해결 방법을 저장한다.
-        raise DataFileError(message, hint) from error  # 저장한 원인과 힌트로 파일 오류를 발생시킨다.
+        raise DataFileError(*ErrorMessages.FILE_ENCODING_ERROR) from error  # 인코딩 및 JSON 문법 손상 오류를 발생시킨다.
     if not isinstance(parsed, dict):  # 한 줄의 결과가 사전 객체인지 검사한다.
-        message = f"{path.name} 파일의 한 줄이 JSON 객체가 아니다."  # 사용자에게 보여 줄 파일 오류 원인을 저장한다.
-        hint = "각 줄을 중괄호로 된 JSON 객체 한 개로 저장한다."  # 필요한 JSONL 저장 모양을 해결 방법으로 저장한다.
-        raise DataFileError(message, hint)  # 저장한 원인과 힌트로 파일 오류를 발생시킨다.
+        raise DataFileError(*ErrorMessages.JSON_FORMAT_INVALID)  # JSON 객체 모양 오류를 발생시킨다.
     return parsed  # 검사한 사전을 돌려준다.
 
 
@@ -147,14 +146,10 @@ class CategoryStore:  # categories.jsonl 파일만 책임지는 저장소 클래
                     continue  # 빈 줄은 무시하고 다음 줄로 넘어간다.
                 raw = _parse_json_line(line, self.path)  # JSONL 한 줄을 Python 사전으로 바꾼다.
                 if "name" not in raw:  # 필수 name 항목이 있는지 검사한다.
-                    message = "categories.jsonl 파일에 name 항목이 없다."  # 사용자에게 보여 줄 파일 오류 원인을 저장한다.
-                    hint = "각 줄을 {\"name\":\"food\"} 모양으로 수정한다."  # 올바른 카테고리 저장 모양을 저장한다.
-                    raise DataFileError(message, hint)  # 저장한 원인과 힌트로 파일 오류를 발생시킨다.
+                    raise DataFileError(*ErrorMessages.CATEGORY_RECORD_INVALID)  # 카테고리 형식 오류를 발생시킨다.
                 name = validate_category_name(str(raw["name"]))  # 카테고리 이름을 검사한다.
                 if name in categories:  # 같은 이름이 이미 읽혔는지 검사한다.
-                    message = "categories.jsonl 파일에 중복 카테고리가 있다."  # 사용자에게 보여 줄 중복 오류 원인을 저장한다.
-                    hint = "중복된 카테고리 줄을 하나만 남긴다."  # 중복을 해결하는 방법을 저장한다.
-                    raise DataFileError(message, hint)  # 저장한 원인과 힌트로 파일 오류를 발생시킨다.
+                    raise DataFileError(*ErrorMessages.CATEGORY_DUPLICATE_IN_FILE)  # 파일 내 중복 카테고리 오류를 발생시킨다.
                 categories.append(name)  # 검사한 이름을 결과 목록에 추가한다.
         return sorted(categories)  # 이름을 가나다와 알파벳 순서로 정렬해서 돌려준다.
 
@@ -164,9 +159,7 @@ class CategoryStore:  # categories.jsonl 파일만 책임지는 저장소 클래
     def add(self, name: str) -> None:  # 새 카테고리 한 개를 저장한다.
         cleaned = validate_category_name(name)  # 저장하기 전에 이름을 검사하고 정리한다.
         if self.exists(cleaned):  # 같은 이름이 이미 등록되어 있는지 검사한다.
-            message = "이미 등록된 카테고리다."  # 사용자에게 보여 줄 중복 오류 원인을 저장한다.
-            hint = "category list로 기존 이름을 확인한 뒤 다른 이름을 사용한다."  # 중복을 해결하는 방법을 저장한다.
-            raise ConflictError(message, hint)  # 저장한 원인과 힌트로 충돌 오류를 발생시킨다.
+            raise ConflictError(*ErrorMessages.category_already_exists(cleaned))  # 중복 카테고리 오류를 발생시킨다.
         with self.path.open("a", encoding="utf-8") as data_file:  # 기존 내용을 유지하는 추가 모드로 파일을 연다.
             data_file.write(_json_line({"name": cleaned}))  # 카테고리 객체를 JSONL 한 줄로 저장한다.
             data_file.flush()  # Python 메모리에 남은 내용을 운영체제로 보낸다.
@@ -201,13 +194,11 @@ class BudgetStore:  # budgets.jsonl 파일만 책임지는 저장소 클래스�
                     continue  # 빈 줄은 무시하고 다음 줄로 넘어간다.
                 raw = _parse_json_line(line, self.path)  # JSONL 한 줄을 Python 사전으로 바꾼다.
                 if "month" not in raw or "amount" not in raw:  # 필수 항목 두 개가 모두 있는지 검사한다.
-                    raise DataFileError("budgets.jsonl 파일에 필수 항목이 없다.", "각 줄에 month와 amount를 모두 넣는다.")  # 필요한 항목을 알린다.
+                    raise DataFileError(*ErrorMessages.BUDGET_MISSING_FIELDS)  # 예산 필수 필드 누락 오류를 알린다.
                 month = validate_month(str(raw["month"]))  # 저장된 월을 YYYY-MM 형식으로 검사한다.
                 amount = validate_amount(raw["amount"])  # 저장된 예산을 양의 정수로 검사한다.
                 if month in budgets:  # 같은 월이 이미 읽혔는지 검사한다.
-                    message = "budgets.jsonl 파일에 같은 월이 두 번 저장되어 있다."  # 사용자에게 보여 줄 중복 오류 원인을 저장한다.
-                    hint = "월별 예산을 한 줄만 남긴다."  # 중복 예산을 해결하는 방법을 저장한다.
-                    raise DataFileError(message, hint)  # 저장한 원인과 힌트로 파일 오류를 발생시킨다.
+                    raise DataFileError(*ErrorMessages.BUDGET_DUPLICATE_MONTH)  # 중복 예산 오류를 발생시킨다.
                 budgets[month] = amount  # 검사한 월과 금액을 사전에 저장한다.
         return budgets  # 모든 월별 예산을 돌려준다.
 

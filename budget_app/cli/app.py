@@ -25,10 +25,11 @@ from budget_app.cli.views import (  # 화면 뷰 출력 함수들을 가져온�
     print_summary,  # 월별 요약 통계 출력 함수다.
     print_transaction,  # 거래 한 줄 출력 함수다.
 )  # 화면 뷰 가져오기를 끝낸다.
-from budget_app.constants import (  # 공통 상수 모듈에서 CLI 기본값을 가져온다.
+from budget_app.constants import (  # 공통 상수 모듈에서 CLI 기본값과 에러 메시지를 가져온다.
     DEFAULT_DATA_DIR,  # 기본 데이터 저장 폴더 이름이다.
     DEFAULT_LIST_LIMIT,  # 목록 출력 시 기본 개수다.
     DEFAULT_SUMMARY_TOP,  # 요약 시 상위 카테고리 기본 개수다.
+    ErrorMessages,  # 오류 메시지 및 해결 힌트 모음 클래스를 가져온다.
     TRANSACTION_TYPES,  # 거래 허용 타입 튜플이다.
 )  # 상수 가져오기를 끝낸다.
 from budget_app.exceptions import ConflictError, NotFoundError, ValidationError  # 대화형 입력에서 오류를 보여 주고 다시 받을 때 사용한다.
@@ -262,7 +263,7 @@ def execute(args: argparse.Namespace) -> int:  # argparse가 해석한 명령 �
         )  # 필드 옵션 포함 여부를 계산한다.
         if has_field_options:  # 명령어 옵션으로 직접 수정할 필드를 준 경우다.
             if not args.id:  # 명령줄 옵션 방식에서는 거래 id가 필수다.
-                raise ValidationError("거래 id가 필요하다.", "--id 옵션으로 수정할 거래를 지정한다.")  # id 누락 오류를 알린다.
+                raise ValidationError(*ErrorMessages.TRANSACTION_ID_REQUIRED)  # id 누락 오류를 알린다.
             updated = service.update_transaction(  # 전달받은 옵션만 골라 거래를 수정한다.
                 transaction_id=args.id,  # 대상 거래 id를 전달한다.
                 date=args.date,  # 새 날짜를 전달한다.
@@ -299,9 +300,7 @@ def execute(args: argparse.Namespace) -> int:  # argparse가 해석한 명령 �
         print(f"[완료] {args.out} ({exported} records)")  # 파일 경로와 처리 건수를 출력한다.
         return 0  # 정상 종료 코드를 돌려준다.
 
-    message = "지원하지 않는 명령이다."  # 모든 분기에 없는 경우 보여 줄 오류 원인을 저장한다.
-    hint = "--help로 사용할 수 있는 명령을 확인한다."  # 사용자가 명령 목록을 확인하는 해결 방법을 저장한다.
-    raise ValidationError(message, hint)  # 저장한 원인과 힌트로 명확한 오류를 만든다.
+    raise ValidationError(*ErrorMessages.unknown_command(args.command))  # 지원하지 않는 명령 오류를 발생시킨다.
 
 
 def main(argv: Optional[List[str]] = None) -> int:  # 터미널 또는 테스트에서 프로그램을 시작하는 진입 함수다.

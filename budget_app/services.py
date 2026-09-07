@@ -16,10 +16,11 @@ from budget_app.validators import (  # 입력값을 종류별로 검사하는 �
     validate_month,  # 월이 YYYY-MM 형식의 실제 월인지 검사한다.
     validate_transaction_type,  # 거래 타입이 income 또는 expense인지 검사한다.
 )  # 입력값 검사 함수 가져오기를 끝낸다.
-from budget_app.constants import (  # 공통 상수 모듈에서 CSV 열 규칙을 가져온다.
+from budget_app.constants import (  # 공통 상수 모듈에서 CSV 열 규칙과 에러 메시지를 가져온다.
     CSV_COLUMNS,  # CSV 내보내기/가져오기 열 순서다.
     CSV_REQUIRED_COLUMNS,  # CSV 필수 열 목록이다.
-)  # CSV 상수 가져오기를 끝낸다.
+    ErrorMessages,  # 오류 원인 및 해결 힌트 모음 클래스를 가져온다.
+)  # CSV 및 메시지 상수 가져오기를 끝낸다.
 
 
 def _category_expense_sort_key(item: Tuple[str, int]) -> Tuple[int, str]:  # 카테고리 지출을 정렬할 기준을 만든다.
@@ -48,9 +49,7 @@ class BudgetService:  # 여러 저장소를 연결해 가계부 규칙을 실행
     def _checked_category(self, category: str) -> str:  # 카테고리 이름과 등록 여부를 함께 검사한다.
         cleaned = validate_category_name(category)  # 이름이 비어 있거나 너무 길지 않은지 검사한다.
         if not self.categories.exists(cleaned):  # 검사한 이름이 카테고리 파일에 등록되어 있는지 확인한다.
-            message = "등록되지 않은 카테고리다."  # 사용자에게 보여 줄 카테고리 오류 원인을 저장한다.
-            hint = "category list로 확인하거나 category add로 먼저 등록한다."  # 카테고리를 등록하는 해결 순서를 저장한다.
-            raise ValidationError(message, hint)  # 저장한 원인과 힌트로 입력 오류를 발생시킨다.
+            raise ValidationError(*ErrorMessages.unregistered_category(cleaned))  # 등록되지 않은 카테고리 오류를 발생시킨다.
         return cleaned  # 검사와 등록 확인을 끝낸 이름을 돌려준다.
 
     def add_transaction(  # 사용자 입력으로 거래 한 건을 검사하고 저장한다.
@@ -58,25 +57,31 @@ class BudgetService:  # 여러 저장소를 연결해 가계부 규칙을 실행
         date: str,  # YYYY-MM-DD 형식으로 받을 거래 날짜다.
         transaction_type: str,  # income 또는 expense로 받을 거래 타입이다.
         category: str,  # 등록된 이름으로 받을 카테고리다.
-        amount: object,  # 문자열 또는 정수로 받을 거래 금액이다.
-        memo: str = "",  # 생략할 수 있는 메모이며 기본값은 빈 문자열이다.
-        tags: object = "",  # 생략할 수 있는 쉼표 구분 태그이며 기본값은 빈 문자열이다.
-    ) -> Transaction:  # 저장을 마친 거래 객체를 돌려준다.
-        transaction = Transaction(  # 모든 입력을 검사한 뒤 새 거래 객체를 만든다.
-            id=self._new_id(),  # 새 거래에 고유 id를 부여한다.
-            type=validate_transaction_type(transaction_type),  # 거래 타입을 검사해서 저장한다.
-            date=validate_date(date),  # 날짜 형식과 실제 날짜를 검사해서 저장한다.
-            amount=validate_amount(amount),  # 금액을 양의 정수로 검사해서 저장한다.
-            category=self._checked_category(category),  # 카테고리 형식과 등록 여부를 검사해서 저장한다.
-            memo=str(memo).strip(),  # 메모 앞뒤 공백을 제거해서 저장한다.
-            tags=normalize_tags(tags),  # 태그를 중복 없는 목록으로 정리해서 저장한다.
-        )  # 새 거래 객체 만들기를 끝낸다.
+        amount: object,  # 0보다 큰 정수로 바꿀 수 있는 금액이다.
+        memo: str = "",  # 선택 입력 메모이며 기본값은 빈 문자열이다.
+        tags: Optional[object] = None,  # 선택 입력 태그 목록 또는 쉼표 문자열이다.
+    ) -> Transaction:  # 검사와 저장을 끝낸 거래 객체를 돌려준다.
+        checked_date = validate_date(date)  # 거래 날짜가 실제 달력에 존재하는지 검사한다.
+        checked_type = validate_transaction_type(transaction_type)  # 수입 또는 지출인지 검사한다.
+        checked_category = self._checked_category(category)  # 카테고리가 등록되어 있는지 검사한다.
+        checked_amount = validate_amount(amount)  # 금액이 0보다 큰 정수인지 검사한다.
+        normalized_memo = memo.strip()  # 메모 앞뒤의 불필요한 공백을 제거한다.
+        normalized_tags = normalize_tags(tags)  # 태그를 중복 없는 문자열 목록으로 정리한다.
+        transaction = Transaction(  # 검사를 통과한 값으로 새 거래 객체를 만든다.
+            id=self._new_id(),  # 겹치지 않는 새 거래 id를 발급한다.
+            date=checked_date,  # 검증된 날짜를 저장한다.
+            type=checked_type,  # 검증된 거래 타입을 저장한다.
+            category=checked_category,  # 검증된 카테고리를 저장한다.
+            amount=checked_amount,  # 검증된 금액을 저장한다.
+            memo=normalized_memo,  # 정리된 메모를 저장한다.
+            tags=normalized_tags,  # 정리된 태그 목록을 저장한다.
+        )  # 거래 객체 만들기를 끝낸다.
         self.transactions.append(transaction)  # 검사에 성공한 거래를 transactions.jsonl 마지막에 추가한다.
         return transaction  # 화면 출력이나 테스트에 쓸 수 있도록 저장한 거래를 돌려준다.
 
     def list_transactions(self, limit: int) -> Iterator[Transaction]:  # 최신 거래를 요청한 개수만큼 한 건씩 전달한다.
         if limit <= 0:  # 제한 개수가 0 또는 음수인지 검사한다.
-            raise ValidationError("목록 개수는 0보다 커야 한다.", "--limit 뒤에 1 이상의 정수를 입력한다.")  # 올바른 옵션 값을 알린다.
+            raise ValidationError(*ErrorMessages.LIMIT_MUST_BE_POSITIVE)  # limit 양수 오류를 알린다.
         for index, transaction in enumerate(self.transactions.iter_latest()):  # 최신 거래부터 번호를 붙여 한 건씩 읽는다.
             if index >= limit:  # 이미 요청한 개수만큼 전달했는지 확인한다.
                 break  # 더 이상 파일을 읽지 않고 반복을 끝낸다.
@@ -110,9 +115,7 @@ class BudgetService:  # 여러 저장소를 연결해 가계부 규칙을 실행
         if tag is not None:  # 사용자가 태그 조건을 입력했는지 확인한다.
             checked_tag = tag.strip()  # 태그 앞뒤 공백을 제거해서 저장한다.
         if checked_from and checked_to and checked_from > checked_to:  # 시작 날짜가 종료 날짜보다 뒤인지 검사한다.
-            message = "검색 시작 날짜가 종료 날짜보다 늦다."  # 사용자에게 보여 줄 날짜 오류 원인을 저장한다.
-            hint = "--from 날짜를 --to 날짜보다 같거나 이르게 입력한다."  # 올바른 검색 날짜 순서를 저장한다.
-            raise ValidationError(message, hint)  # 저장한 원인과 힌트로 입력 오류를 발생시킨다.
+            raise ValidationError(*ErrorMessages.DATE_RANGE_REVERSED)  # 날짜 순서 역전 오류를 알린다.
         for transaction in self.transactions.iter_latest():  # 최신 거래부터 파일을 한 건씩 읽는다.
             if checked_from and transaction.date < checked_from:  # 거래가 시작 날짜보다 이전인지 검사한다.
                 continue  # 조건에 맞지 않으므로 다음 거래로 넘어간다.
@@ -147,12 +150,10 @@ class BudgetService:  # 여러 저장소를 연결해 가계부 규칙을 실행
             and tags is None  # 새 태그가 입력되지 않았는지 확인한다.
         )  # 모든 수정 옵션 확인을 끝낸다.
         if no_changes:  # 수정할 값이 하나도 없는지 확인한다.
-            message = "수정할 항목이 없다."  # 사용자에게 보여 줄 수정 오류 원인을 저장한다.
-            hint = "--date, --type, --category, --amount, --memo, --tags 중 하나 이상 입력한다."  # 필요한 수정 옵션을 저장한다.
-            raise ValidationError(message, hint)  # 저장한 원인과 힌트로 입력 오류를 발생시킨다.
+            raise ValidationError(*ErrorMessages.NO_FIELDS_TO_UPDATE)  # 수정 항목 없음 오류를 발생시킨다.
         existing = self.transactions.find_by_id(transaction_id)  # id가 같은 기존 거래를 찾는다.
         if existing is None:  # 수정할 거래가 존재하지 않는지 검사한다.
-            raise NotFoundError(f"id={transaction_id} 거래가 없다.", "list 또는 search로 존재하는 id를 확인한다.")  # 찾는 방법을 알린다.
+            raise NotFoundError(*ErrorMessages.transaction_not_found(transaction_id))  # 거래 없음 오류를 발생시킨다.
         new_type = existing.type  # 새 거래 타입의 기본값으로 기존 타입을 저장한다.
         if transaction_type is not None:  # 새 거래 타입이 입력되었는지 확인한다.
             new_type = validate_transaction_type(transaction_type)  # 새 거래 타입을 검사해서 교체한다.
@@ -185,12 +186,12 @@ class BudgetService:  # 여러 저장소를 연결해 가계부 규칙을 실행
 
     def delete_transaction(self, transaction_id: str) -> None:  # id가 같은 거래 한 건을 삭제한다.
         if not self.transactions.delete(transaction_id):  # 저장소가 삭제 대상을 찾지 못했는지 검사한다.
-            raise NotFoundError(f"id={transaction_id} 거래가 없다.", "list 또는 search로 존재하는 id를 확인한다.")  # 찾는 방법을 알린다.
+            raise NotFoundError(*ErrorMessages.transaction_not_found(transaction_id))  # 거래 없음 오류를 발생시킨다.
 
     def monthly_summary(self, month: str, top: int) -> MonthlySummary:  # 한 달의 수입, 지출, 카테고리 합계, 예산을 계산한다.
         checked_month = validate_month(month)  # 계산할 월을 YYYY-MM 형식으로 검사한다.
         if top <= 0:  # 상위 카테고리 개수가 0 또는 음수인지 검사한다.
-            raise ValidationError("TOP 개수는 0보다 커야 한다.", "--top 뒤에 1 이상의 정수를 입력한다.")  # 올바른 옵션 값을 알린다.
+            raise ValidationError(*ErrorMessages.TOP_MUST_BE_POSITIVE)  # top 양수 오류를 알린다.
         total_income = 0  # 총수입 계산을 0에서 시작한다.
         total_expense = 0  # 총지출 계산을 0에서 시작한다.
         transaction_count = 0  # 해당 월의 거래 개수 계산을 0에서 시작한다.
@@ -236,11 +237,9 @@ class BudgetService:  # 여러 저장소를 연결해 가계부 규칙을 실행
         cleaned = validate_category_name(name)  # 삭제할 이름의 형식을 검사한다.
         for transaction in self.transactions.iter_latest():  # 거래 파일을 한 건씩 읽는다.
             if transaction.category == cleaned:  # 삭제할 카테고리를 사용 중인 거래가 있는지 검사한다.
-                message = "거래에서 사용 중인 카테고리는 삭제할 수 없다."  # 사용자에게 보여 줄 삭제 오류 원인을 저장한다.
-                hint = "해당 거래의 카테고리를 update로 바꾼 뒤 다시 삭제한다."  # 안전한 카테고리 삭제 순서를 저장한다.
-                raise ConflictError(message, hint)  # 저장한 원인과 힌트로 충돌 오류를 발생시킨다.
+                raise ConflictError(*ErrorMessages.category_in_use(cleaned))  # 사용 중인 카테고리 삭제 불가 오류를 발생시킨다.
         if not self.categories.remove(cleaned):  # 사용 중이 아니지만 등록 목록에도 없는지 검사한다.
-            raise NotFoundError(f"category={cleaned} 카테고리가 없다.", "category list로 등록된 이름을 확인한다.")  # 목록 확인 방법을 알린다.
+            raise NotFoundError(*ErrorMessages.category_not_found(cleaned))  # 카테고리 없음 오류를 발생시킨다.
 
 
 
@@ -263,7 +262,7 @@ class BudgetService:  # 여러 저장소를 연결해 가계부 규칙을 실행
         
             if missing:  # 빠진 필수 헤더가 하나 이상 있는지 검사한다.
                 missing_text = ", ".join(sorted(missing))  # 빠진 이름들을 읽기 좋은 쉼표 문자열로 만든다.
-                raise ValidationError(f"CSV 필수 헤더가 없다: {missing_text}", "date,type,category,amount 헤더를 포함한다.")  # 필요한 헤더를 알린다.
+                raise ValidationError(*ErrorMessages.csv_missing_headers(missing_text))  # 헤더 누락 오류를 발생시킨다.
         
             for line_number, row in enumerate(reader, start=2):  # 헤더 다음인 2번 줄부터 번호를 붙여 한 건씩 읽는다.
                 try:  # 현재 CSV 줄의 검사와 저장을 시도한다.
@@ -293,9 +292,9 @@ class BudgetService:  # 여러 저장소를 연결해 가계부 규칙을 실행
     ) -> int:  # 실제로 CSV에 쓴 거래 개수를 돌려준다.
         
         if not month and not date_from and not date_to:  # 내보내기 조건이 하나도 없는지 검사한다.
-            raise ValidationError("export 조건이 없다.", "--month 또는 --from과 --to를 입력한다.")  # 필요한 조건을 알린다.
+            raise ValidationError(*ErrorMessages.EXPORT_CONDITION_REQUIRED)  # 내보내기 조건 필요 오류를 발생시킨다.
         if bool(date_from) != bool(date_to):  # 시작과 종료 날짜 중 하나만 입력했는지 검사한다.
-            raise ValidationError("기간 조건이 한쪽만 입력되었다.", "--from과 --to를 함께 입력한다.")  # 완전한 범위 입력 방법을 알린다.
+            raise ValidationError(*ErrorMessages.EXPORT_DATE_RANGE_INCOMPLETE)  # 기간 조건 불완전 오류를 발생시킨다.
         checked_month: Optional[str] = None  # 검사된 월 조건이 없다는 상태로 시작한다.
         if month is not None:  # 사용자가 월 조건을 입력했는지 확인한다.
             checked_month = validate_month(month)  # 입력한 월을 검사해서 저장한다.
@@ -306,9 +305,7 @@ class BudgetService:  # 여러 저장소를 연결해 가계부 규칙을 실행
         if date_to is not None:  # 사용자가 종료 날짜를 입력했는지 확인한다.
             checked_to = validate_date(date_to)  # 입력한 종료 날짜를 검사해서 저장한다.
         if checked_from and checked_to and checked_from > checked_to:  # 시작 날짜가 종료 날짜보다 뒤인지 검사한다.
-            message = "내보내기 시작 날짜가 종료 날짜보다 늦다."  # 사용자에게 보여 줄 날짜 오류 원인을 저장한다.
-            hint = "--from 날짜를 --to 날짜보다 같거나 이르게 입력한다."  # 올바른 내보내기 날짜 순서를 저장한다.
-            raise ValidationError(message, hint)  # 저장한 원인과 힌트로 입력 오류를 발생시킨다.
+            raise ValidationError(*ErrorMessages.DATE_RANGE_REVERSED)  # 날짜 순서 역전 오류를 발생시킨다.
         
         output.parent.mkdir(parents=True, exist_ok=True)  # 출력 파일의 부모 폴더가 없으면 자동으로 만든다.
         

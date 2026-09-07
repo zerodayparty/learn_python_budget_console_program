@@ -3,6 +3,7 @@
 from dataclasses import dataclass  # dataclass는 데이터 보관용 클래스를 간단하게 만드는 도구다.
 from typing import Any, Dict, List, Optional, Tuple  # 각 값의 자료형을 명확히 표시하기 위해 가져온다.
 
+from budget_app.constants import ErrorMessages  # 오류 원인 및 해결 힌트 모음 클래스를 가져온다.
 from budget_app.exceptions import DataFileError, ValidationError  # 저장된 거래 모양이 잘못된 경우 사용할 오류들이다.
 from budget_app.validators import (  # 저장 데이터를 다시 검사할 함수들을 가져온다.
     normalize_tags,  # 저장된 태그를 문자열 목록으로 정리한다.
@@ -60,9 +61,7 @@ class Transaction:  # 거래 한 건이 반드시 가져야 할 값을 묶은 �
             )  # 거래 객체 만들기를 끝낸다.
         
         except (KeyError, TypeError, ValueError, ValidationError) as error:  # 필수 항목 누락이나 잘못된 값을 잡는다.
-            message = "거래 저장 파일의 데이터 형식이 잘못되었다."  # 사용자에게 보여 줄 파일 오류 원인을 저장한다.
-            hint = "손상된 줄을 수정하거나 백업 파일로 복구한다."  # 사용자에게 보여 줄 해결 방법을 저장한다.
-            raise DataFileError(message, hint) from error  # 저장한 원인과 힌트로 파일 오류를 발생시킨다.
+            raise DataFileError(*ErrorMessages.TRANSACTION_DATA_CORRUPTED) from error  # 거래 데이터 손상 오류를 발생시킨다.
 
 
 

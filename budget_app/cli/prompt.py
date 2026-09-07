@@ -3,6 +3,7 @@
 from typing import Callable, Optional  # 함수 타입과 값이 없을 수도 있는 타입을 표시하기 위해 가져온다.
 
 from budget_app.cli.output import print_error  # CLI 전용 오류와 힌트 출력 도구를 가져온다.
+from budget_app.constants import ErrorMessages  # 오류 원인 및 해결 힌트 모음 클래스를 가져온다.
 from budget_app.exceptions import NotFoundError, ValidationError  # 입력 오류와 데이터 없음 오류를 다루기 위해 가져온다.
 from budget_app.models import Transaction  # 수정 결과로 돌려줄 거래 데이터 클래스를 가져온다.
 from budget_app.services import BudgetService  # 카테고리 확인 및 거래 수정을 호출할 서비스 객체 타입이다.
@@ -33,7 +34,7 @@ def prompt_update_interactive(service: BudgetService, transaction_id: Optional[s
 
     found = service.transactions.find_by_id(target_id)  # 저장소에서 해당 id를 가진 거래가 있는지 찾아본다.
     if found is None:  # 찾으려는 거래가 저장 파일에 없는 경우다.
-        raise NotFoundError(f"id '{target_id}' 거래가 없다.", "list 명령으로 존재하는 거래 id를 확인한다.")  # 에러를 일으킨다.
+        raise NotFoundError(*ErrorMessages.prompt_transaction_not_found(target_id))  # 거래 없음 오류를 발생시킨다.
 
     tags_text = ",".join(found.tags)  # 기존 거래의 태그들을 쉼표로 이어 붙인다.
     print(f"[현재 내역] {found.date} | {found.type} | {found.category} | {found.amount} | {found.memo} | {tags_text}")  # 현재 저장된 거래 상세 정보를 보여준다.
