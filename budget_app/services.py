@@ -233,6 +233,11 @@ class BudgetService:  # 여러 저장소를 연결해 가계부 규칙을 실행
     def list_categories(self) -> List[str]:  # 저장된 모든 카테고리를 조회한다.
         return self.categories.list_all()  # 카테고리 저장소가 정렬한 목록을 그대로 돌려준다.
 
+    def category_exists(self, name: str) -> bool:  # 특정 카테고리가 등록되어 있는지 확인한다.
+        cleaned = validate_category_name(name)  # 확인할 카테고리 이름의 공백과 길이를 검사한다.
+        return self.categories.exists(cleaned)  # 카테고리 저장소에서 이름 존재 여부를 확인해 참 또는 거짓을 돌려준다.
+
+
     def remove_category(self, name: str) -> None:  # 사용하지 않는 카테고리만 삭제한다.
         cleaned = validate_category_name(name)  # 삭제할 이름의 형식을 검사한다.
         for transaction in self.transactions.iter_latest():  # 거래 파일을 한 건씩 읽는다.

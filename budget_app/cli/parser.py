@@ -87,13 +87,15 @@ def build_parser() -> argparse.ArgumentParser:  # 모든 명령과 --help 정보
 
     category_parser = commands.add_parser(  # category 명령 전용 해석기를 만든다.
         "category",  # 터미널에서 사용할 명령 이름을 category로 정한다.
-        help="카테고리 추가·목록·삭제",  # 전체 도움말에 보일 짧은 설명을 정한다.
+        help="카테고리 추가·목록·확인·삭제",  # 전체 도움말에 보일 짧은 설명을 정한다.
         description="거래에서 사용할 카테고리를 관리한다.",  # category 도움말에 보일 상세 설명을 정한다.
     )  # category 명령 해석기 만들기를 끝낸다.
-    category_actions = category_parser.add_subparsers(dest="category_action", required=True, title="카테고리 작업")  # add, list, remove 중 하나를 선택하게 한다.
+    category_actions = category_parser.add_subparsers(dest="category_action", required=True, title="카테고리 작업")  # add, list, exists, remove 중 하나를 선택하게 한다.
     category_add_parser = category_actions.add_parser("add", help="카테고리 추가")  # category add 명령 해석기를 만든다.
     category_add_parser.add_argument("--name", help="이름이며 생략하면 대화형으로 입력")  # 옵션 또는 대화형으로 이름을 받는다.
     category_actions.add_parser("list", help="카테고리 목록")  # category list와 --help를 등록한다.
+    category_exists_parser = category_actions.add_parser("exists", help="특정 카테고리 존재 확인")  # category exists 명령 해석기를 만든다.
+    category_exists_parser.add_argument("--name", help="이름이며 생략하면 대화형으로 입력")  # 옵션 또는 대화형으로 확인할 이름을 받는다.
     category_remove_parser = category_actions.add_parser("remove", help="사용하지 않는 카테고리 삭제")  # category remove 명령 해석기를 만든다.
     category_remove_parser.add_argument("--name", help="이름이며 생략하면 대화형으로 입력")  # 옵션 또는 대화형으로 삭제할 이름을 받는다.
 

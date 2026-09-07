@@ -129,21 +129,28 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
 
             elif choice == "8":  # 8번 카테고리 관리를 선택한 경우다.
                 print_section_title("카테고리 관리")  # 작업 소제목을 출력한다.
-                c_action = input("작업 선택 (1: 목록, 2: 추가, 3: 삭제): ").strip()  # 서브 작업을 받는다.
-                if c_action == "1":  # 목록 조회를 선택한 경우다.
-                    cats = service.list_categories()  # 카테고리 목록을 가져온다.
-                    for c in cats:  # 하나씩 순회한다.
-                        print(f"- {c}")  # 카테고리를 출력한다.
-                elif c_action == "2":  # 추가를 선택한 경우다.
-                    c_name = input("추가할 카테고리명: ").strip()  # 새 이름을 받는다.
-                    saved = service.add_category(c_name)  # 카테고리를 저장한다.
-                    print(f"[저장 완료] category={saved}")  # 완료 메시지를 출력한다.
-                elif c_action == "3":  # 삭제를 선택한 경우다.
-                    c_name = input("삭제할 카테고리명: ").strip()  # 삭제할 이름을 받는다.
-                    service.remove_category(c_name)  # 사용 중 여부를 확인하고 삭제한다.
-                    print(f"[삭제 완료] category={c_name}")  # 완료 메시지를 출력한다.
-                else:  # 잘못된 번호를 누른 경우다.
-                    print("❌ ⚠️ 잘못된 선택이다.")  # 안내를 출력한다.
+                print("작업 선택\n 1. list\n 2. exists\n 3. add\n 4. remove")  # 카테고리 관리 서브 메뉴 목록을 출력한다.
+                c_action = input("선택: ").strip().lower()  # 서브 작업 번호나 영문 이름을 입력받는다.
+                if c_action in ["1", "list"]:  # 1번 목록 조회를 선택한 경우다.
+                    cats = service.list_categories()  # 저장된 모든 카테고리 목록을 가져온다.
+                    for c in cats:  # 카테고리 이름을 하나씩 순회한다.
+                        print(f"- {c}")  # 카테고리 이름을 글머리기호와 함께 출력한다.
+                elif c_action in ["2", "exists"]:  # 2번 존재 여부 확인을 선택한 경우다.
+                    c_name = input("확인할 카테고리명: ").strip()  # 확인할 카테고리 이름을 입력받는다.
+                    if service.category_exists(c_name):  # 특정 카테고리가 등록되어 있는지 확인한다.
+                        print(f"[확인 완료] category={c_name} (등록되어 있음)")  # 등록되어 있음을 출력한다.
+                    else:  # 등록되어 있지 않은 경우다.
+                        print(f"[확인 완료] category={c_name} (등록되어 있지 않음)")  # 미등록 상태임을 출력한다.
+                elif c_action in ["3", "add"]:  # 3번 카테고리 추가를 선택한 경우다.
+                    c_name = input("추가할 카테고리명: ").strip()  # 새 카테고리 이름을 입력받는다.
+                    saved = service.add_category(c_name)  # 새 카테고리를 검사하고 저장한다.
+                    print(f"[저장 완료] category={saved}")  # 저장 완료 메시지를 출력한다.
+                elif c_action in ["4", "remove"]:  # 4번 카테고리 삭제를 선택한 경우다.
+                    c_name = input("삭제할 카테고리명: ").strip()  # 삭제할 카테고리 이름을 입력받는다.
+                    service.remove_category(c_name)  # 사용 중 여부를 확인하고 카테고리를 삭제한다.
+                    print(f"[삭제 완료] category={c_name}")  # 삭제 완료 메시지를 출력한다.
+                else:  # 메뉴에 없는 값을 누른 경우다.
+                    print("❌ ⚠️ 잘못된 선택이다.")  # 올바른 선택 안내를 출력한다.
 
             elif choice == "9":  # 9번 CSV 관리를 선택한 경우다.
                 print_section_title("CSV 파일 처리")  # 작업 소제목을 출력한다.

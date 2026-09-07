@@ -88,8 +88,11 @@ class BudgetServiceTest(unittest.TestCase):  # 서비스와 파일 저장 기능
             self.service.remove_category("food")  # 거래가 사용하는 food 삭제를 시도한다.
         self.service.add_category("education")  # 사용하지 않는 새 카테고리를 추가한다.
         self.assertIn("education", self.service.list_categories())  # 추가한 카테고리가 목록에 있는지 확인한다.
+        self.assertTrue(self.service.category_exists("education"))  # exists 함수가 존재하는 카테고리에 대해 True인지 확인한다.
+        self.assertFalse(self.service.category_exists("nonexistent"))  # exists 함수가 없는 카테고리에 대해 False인지 확인한다.
         self.service.remove_category("education")  # 사용하지 않는 카테고리를 삭제한다.
         self.assertNotIn("education", self.service.list_categories())  # 삭제한 카테고리가 목록에서 사라졌는지 확인한다.
+        self.assertFalse(self.service.category_exists("education"))  # 삭제 후 exists 함수가 False인지 확인한다.
 
     def test_import_and_export_csv(self) -> None:  # 고정 CSV 스키마와 처리 건수 계산을 검증한다.
         source = Path(self.temporary_directory.name) / "import.csv"  # 가져오기용 CSV 파일 경로를 만든다.
@@ -251,6 +254,52 @@ class BudgetCliTest(unittest.TestCase):  # 실제 명령어 해석, 대화형 �
         self.assertIn("[저장 완료] id=TX-", printed)  # 콘솔 내에서 거래 추가 성공 메시지가 나왔는지 확인한다.
         self.assertIn("2026-08-15 | expense | food | 9000 | 김밥세트 | lunch", printed)  # 콘솔 내에서 목록 조회가 되었는지 확인한다.
         self.assertIn("가계부 프로그램을 종료한다", printed)  # 마지막에 정상 종료 메시지가 나왔는지 확인한다.
+
+    def test_category_exists_cli_and_interactive(self) -> None:  # 카테고리 exists 기능이 CLI 옵션과 대화형 콘솔에서 정상 동작하는지 검증한다.
+        cli_out = io.StringIO()  # CLI 실행 결과를 메모리에 담을 객체를 만든다.
+        with patch("sys.stdout", cli_out):  # 실제 화면 출력을 메모리 통로로 바꾼다.
+            code_exists = main(["--data-dir", str(self.data_dir), "category", "exists", "--name", "food"])  # 등록된 food 카테고리 확인 명령을 실행한다.
+        self.assertEqual(0, code_exists)  # 명령이 정상 종료 코드 0을 돌려줬는지 확인한다.
+        self.assertIn("[확인 완료] category=food (등록되어 있음)", cli_out.getvalue())  # 등록되어 있다는 메시지가 출력됐는지 확인한다.
+
+        cli_none_out = io.StringIO()  # 미등록 카테고리 CLI 결과를 담을 객체를 만든다.
+        with patch("sys.stdout", cli_none_out):  # 실제 화면 출력을 메모리 통로로 바꾼다.
+            code_none = main(["--data-dir", str(self.data_dir), "category", "exists", "--name", "ghost"])  # 미등록 ghost 카테고리 확인 명령을 실행한다.
+        self.assertEqual(0, code_none)  # 명령이 정상 종료 코드 0을 돌려줬는지 확인한다.
+        self.assertIn("[확인 완료] category=ghost (등록되어 있지 않음)", cli_none_out.getvalue())  # 미등록 상태 메시지가 출력됐는지 확인한다.
+
+        console_inputs = [  # 대화형 콘솔에서 8번 카테고리 메뉴의 1(list), 2(exists), 3(add), 4(remove)를 순차 실행하고 종료하는 입력들이다.
+            "8",  # 메인 메뉴 8번(카테고리 관리)을 선택한다.
+            "1",  # 카테고리 서브 메뉴에서 1번(list)을 선택한다.
+            "8",  # 메인 메뉴 8번(카테고리 관리)을 다시 선택한다.
+            "2",  # 카테고리 서브 메뉴에서 2번(exists)을 선택한다.
+            "food",  # 확인할 카테고리 이름으로 food를 입력한다.
+            "8",  # 다시 메인 메뉴 8번(카테고리 관리)을 선택한다.
+            "exists",  # 이번에는 영문 단어 exists로 서브 메뉴를 선택한다.
+            "ghost",  # 미등록 이름인 ghost를 입력한다.
+            "8",  # 다시 메인 메뉴 8번(카테고리 관리)을 선택한다.
+            "3",  # 3번(add)을 선택해 새 카테고리를 추가한다.
+            "education",  # 새 카테고리 이름으로 education을 입력한다.
+            "8",  # 다시 메인 메뉴 8번(카테고리 관리)을 선택한다.
+            "2",  # 2번(exists)으로 방금 추가한 education을 확인한다.
+            "education",  # 확인할 카테고리 이름으로 education을 입력한다.
+            "8",  # 다시 메인 메뉴 8번(카테고리 관리)을 선택한다.
+            "4",  # 4번(remove)으로 education 카테고리를 삭제한다.
+            "education",  # 삭제할 카테고리 이름으로 education을 입력한다.
+            "q",  # 프로그램을 종료한다.
+        ]  # 대화형 콘솔 입력 순서 구성을 끝낸다.
+        interactive_out = io.StringIO()  # 대화형 콘솔 출력을 메모리에 담을 통로를 준비한다.
+        with patch("builtins.input", side_effect=console_inputs), patch("sys.stdout", interactive_out):  # 키보드와 화면을 대체한다.
+            exit_code = main(["--data-dir", str(self.data_dir)])  # 대화형 콘솔을 실행한다.
+        self.assertEqual(0, exit_code)  # 대화형 콘솔이 정상 종료 코드 0을 돌려줬는지 확인한다.
+        printed = interactive_out.getvalue()  # 대화형 콘솔 전체 출력 내용을 가져온다.
+        self.assertIn("작업 선택\n 1. list\n 2. exists\n 3. add\n 4. remove", printed)  # 요구된 서브 메뉴 목록 형식이 출력됐는지 확인한다.
+        self.assertIn("- food", printed)  # 1번 list로 food 카테고리가 목록에 출력됐는지 확인한다.
+        self.assertIn("[확인 완료] category=food (등록되어 있음)", printed)  # food 카테고리 등록 확인 출력이 나왔는지 확인한다.
+        self.assertIn("[확인 완료] category=ghost (등록되어 있지 않음)", printed)  # ghost 카테고리 미등록 출력이 나왔는지 확인한다.
+        self.assertIn("[저장 완료] category=education", printed)  # 3번 add로 education 카테고리가 추가됐는지 확인한다.
+        self.assertIn("[확인 완료] category=education (등록되어 있음)", printed)  # 2번 exists로 education 카테고리가 확인됐는지 확인한다.
+        self.assertIn("[삭제 완료] category=education", printed)  # 4번 remove로 education 카테고리가 삭제됐는지 확인한다.
 
 
 if __name__ == "__main__":  # 이 테스트 파일을 직접 실행했는지 확인한다.

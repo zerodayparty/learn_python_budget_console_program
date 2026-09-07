@@ -122,6 +122,15 @@ def execute(args: argparse.Namespace) -> int:  # argparse가 해석한 명령 �
             for category in service.list_categories():  # 정렬된 카테고리를 하나씩 꺼낸다.
                 print(f"- {category}")  # 카테고리 목록을 글머리기호와 함께 출력한다.
             return 0  # 성공 종료 코드를 돌려준다.
+        if args.category_action == "exists":  # 카테고리 존재 확인 작업을 선택한 경우다.
+            name = args.name  # 명령줄 옵션으로 받은 카테고리 이름을 우선 읽는다.
+            if name is None or not name.strip():  # 옵션이 생략되었거나 공백인지 확인한다.
+                name = input("확인할 카테고리명: ")  # 옵션이 없으면 대화형으로 이름을 받는다.
+            if service.category_exists(name):  # 카테고리가 등록되어 있는지 확인한다.
+                print(f"[확인 완료] category={name.strip()} (등록되어 있음)")  # 등록되어 있음을 알린다.
+            else:  # 등록되어 있지 않은 경우다.
+                print(f"[확인 완료] category={name.strip()} (등록되어 있지 않음)")  # 등록되어 있지 않음을 알린다.
+            return 0  # 성공 종료 코드를 돌려준다.
         if args.category_action == "remove":  # 카테고리 삭제 작업을 선택한 경우다.
             name = args.name  # 명령줄 옵션으로 받은 카테고리 이름을 우선 읽는다.
             if name is None or not name.strip():  # 옵션이 생략되었거나 공백인지 확인한다.
