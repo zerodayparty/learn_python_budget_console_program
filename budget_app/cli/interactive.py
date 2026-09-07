@@ -2,23 +2,23 @@
 
 from pathlib import Path  # 가계부 데이터가 저장된 폴더 경로를 다루기 위해 가져온다.
 
-from budget_app.constants import DEFAULT_LIST_LIMIT, DEFAULT_SUMMARY_TOP  # 기본 출력 개수(10개, 3개) 상수를 가져온다.
-from budget_app.exceptions import ConflictError, NotFoundError, ValidationError  # 대화형 메뉴에서 잡을 비즈니스 에러들을 가져온다.
-from budget_app.output import print_error, print_section_title, print_success  # 표준 출력 도구들을 가져온다.
-from budget_app.prompt import (  # 사용자 대화형 입력을 유도하는 함수들을 가져온다.
+from budget_app.cli.output import print_error, print_section_title  # CLI 전용 표준 출력 도구들을 가져온다.
+from budget_app.cli.prompt import (  # 사용자 대화형 입력을 유도하는 함수들을 가져온다.
     prompt_registered_category,  # 등록된 카테고리만 입력받는 함수다.
     prompt_until_valid,  # 검증을 통과할 때까지 반복 입력받는 함수다.
     prompt_update_interactive,  # 거래 수정 필드를 하나씩 대화형으로 묻는 함수다.
 )  # 대화형 입력 함수 가져오기를 마친다.
-from budget_app.repositories import BudgetStore, CategoryStore, TransactionRepository  # 저장 파일 3개를 다루는 저장소들을 가져온다.
-from budget_app.services import BudgetService  # 가계부 핵심 계산 및 저장 규칙을 실행할 서비스를 가져온다.
-from budget_app.validators import validate_amount, validate_date, validate_transaction_type  # 입력값 검증 함수들을 가져온다.
-from budget_app.views import (  # 화면에 데이터를 꾸며서 보여주는 뷰 함수들을 가져온다.
+from budget_app.cli.views import (  # 화면에 데이터를 꾸며서 보여주는 뷰 함수들을 가져온다.
     print_interactive_header,  # 대화형 모드 환영 배너 출력 함수다.
     print_main_menu,  # 1~9번 메인 메뉴판 출력 함수다.
     print_summary,  # 월별 요약 통계 출력 함수다.
     print_transaction,  # 거래 한 줄 출력 함수다.
 )  # 뷰 함수 가져오기를 마친다.
+from budget_app.constants import DEFAULT_LIST_LIMIT, DEFAULT_SUMMARY_TOP  # 기본 출력 개수(10개, 3개) 상수를 가져온다.
+from budget_app.exceptions import ConflictError, NotFoundError, ValidationError  # 대화형 메뉴에서 잡을 비즈니스 에러들을 가져온다.
+from budget_app.repositories import BudgetStore, CategoryStore, TransactionRepository  # 저장 파일 3개를 다루는 저장소들을 가져온다.
+from budget_app.services import BudgetService  # 가계부 핵심 계산 및 저장 규칙을 실행할 서비스를 가져온다.
+from budget_app.validators import validate_amount, validate_date, validate_transaction_type  # 입력값 검증 함수들을 가져온다.
 
 
 def _build_service(data_dir: Path) -> BudgetService:  # 지정된 데이터 폴더의 저장소들을 조립해 서비스 객체를 만든다.

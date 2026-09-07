@@ -2,9 +2,9 @@
 
 from typing import Callable, Optional  # 함수 타입과 값이 없을 수도 있는 타입을 표시하기 위해 가져온다.
 
+from budget_app.cli.output import print_error  # CLI 전용 오류와 힌트 출력 도구를 가져온다.
 from budget_app.exceptions import NotFoundError, ValidationError  # 입력 오류와 데이터 없음 오류를 다루기 위해 가져온다.
 from budget_app.models import Transaction  # 수정 결과로 돌려줄 거래 데이터 클래스를 가져온다.
-from budget_app.output import print_error  # 오류와 힌트를 예쁘게 출력해 주는 도구를 가져온다.
 from budget_app.services import BudgetService  # 카테고리 확인 및 거래 수정을 호출할 서비스 객체 타입이다.
 
 

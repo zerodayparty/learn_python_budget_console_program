@@ -1,7 +1,7 @@
-# 이 파일은 가계부의 데이터(거래 내역, 요약 통계, 메뉴 화면)를 사용자가 읽기 좋은 화면(View)으로 만든다.
+# 이 파일은 가계부 데이터(거래 내역, 요약 통계, 메뉴 화면)를 터미널 화면(View)으로 만든다.
 
+from budget_app.cli.output import print_divider, print_warning  # CLI 전용 구분선과 경고 문구 출력 도구를 가져온다.
 from budget_app.models import MonthlySummary, Transaction  # 화면에 띄울 거래 데이터와 통계 요약 데이터 클래스를 가져온다.
-from budget_app.output import print_divider, print_warning  # 구분선과 경고 문구를 출력하는 도구를 가져온다.
 
 
 def print_transaction(transaction: Transaction) -> None:  # 거래 한 건을 세로선(|)으로 구분된 깔끔한 한 줄로 출력한다.
