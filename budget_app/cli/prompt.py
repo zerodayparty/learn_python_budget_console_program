@@ -18,13 +18,14 @@ def prompt_until_valid(label: str, validator: Callable[[str], object]) -> object
             print_error(error.message, error.hint)  # 에러 원인과 올바른 입력 힌트를 화면에 출력한다.
 
 
-def prompt_registered_category(service: BudgetService) -> str:  # 가계부에 이미 등록된 카테고리를 입력할 때까지 반복해서 묻는다.
+def prompt_registered_category(service: BudgetService) -> str:  # 등록된 카테고리를 먼저 안내하고 올바른 입력을 받을 때까지 묻는다.
+    available = service.list_categories()  # 현재 가계부에 등록된 전체 카테고리 목록을 가져온다.
+    print(f"[현재 등록된 카테고리: {', '.join(available)}]")  # 사용자가 참고할 수 있도록 카테고리 선택 전 전체 목록을 출력한다.
     while True:  # 등록된 카테고리를 입력할 때까지 무한 반복한다.
         category = input("카테고리: ").strip()  # 카테고리 이름을 입력받고 앞뒤 공백을 깔끔하게 제거한다.
-        if category in service.list_categories():  # 입력한 카테고리가 등록된 카테고리 목록에 있는지 확인한다.
+        if category in available:  # 입력한 카테고리가 등록된 카테고리 목록에 있는지 확인한다.
             return category  # 등록된 카테고리면 즉시 이름을 돌려주며 반복을 마친다.
-        available = ", ".join(service.list_categories())  # 현재 사용 가능한 카테고리들을 쉼표로 연결한다.
-        print_error("등록되지 않은 카테고리다.", f"사용 가능: {available}")  # 오류 문구와 선택 가능한 목록 힌트를 출력한다.
+        print_error("등록되지 않은 카테고리다.", f"사용 가능: {', '.join(available)}")  # 오류 문구와 선택 가능한 목록 힌트를 출력한다.
 
 
 def prompt_update_interactive(service: BudgetService, transaction_id: Optional[str] = None) -> Transaction:  # 거래 id를 찾고 수정할 값을 대화형으로 입력받아 수정한다.

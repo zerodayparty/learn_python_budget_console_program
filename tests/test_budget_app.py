@@ -146,6 +146,7 @@ class BudgetCliTest(unittest.TestCase):  # 실제 명령어 해석, 대화형 �
         with patch("builtins.input", side_effect=answers), patch("sys.stdout", add_output):  # 실제 키보드와 화면을 테스트 값으로 잠시 바꾼다.
             add_code = main(["--data-dir", str(self.data_dir), "add"])  # 실제 add 명령을 실행한다.
         self.assertEqual(0, add_code)  # add가 정상 종료 코드 0을 돌려줬는지 확인한다.
+        self.assertIn("[현재 등록된 카테고리:", add_output.getvalue())  # 카테고리 입력 전 등록된 카테고리 목록이 출력됐는지 확인한다.
         self.assertIn("[저장 완료] id=TX-", add_output.getvalue())  # 생성된 id가 성공 메시지에 포함됐는지 확인한다.
         list_output = io.StringIO()  # list 화면 출력을 메모리에 받을 빈 문자열 통로를 만든다.
         with patch("sys.stdout", list_output):  # 실제 화면을 테스트 문자열 통로로 잠시 바꾼다.
@@ -251,6 +252,7 @@ class BudgetCliTest(unittest.TestCase):  # 실제 명령어 해석, 대화형 �
             exit_code = main(["--data-dir", str(self.data_dir)])  # 대화형 콘솔을 실행한다.
         self.assertEqual(0, exit_code)  # 연속 작업 후 정상 종료 코드 0을 돌려주었는지 확인한다.
         printed = console_output.getvalue()  # 화면 전체 출력을 가져온다.
+        self.assertIn("[현재 등록된 카테고리:", printed)  # 대화형 거래 추가 시 카테고리 목록이 출력됐는지 확인한다.
         self.assertIn("[저장 완료] id=TX-", printed)  # 콘솔 내에서 거래 추가 성공 메시지가 나왔는지 확인한다.
         self.assertIn("2026-08-15 | expense | food | 9000 | 김밥세트 | lunch", printed)  # 콘솔 내에서 목록 조회가 되었는지 확인한다.
         self.assertIn("가계부 프로그램을 종료한다", printed)  # 마지막에 정상 종료 메시지가 나왔는지 확인한다.
