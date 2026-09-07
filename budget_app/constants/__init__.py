@@ -5,10 +5,10 @@ from budget_app.constants.categories import (  # 카테고리 및 거래 타입 
     DEFAULT_CATEGORIES,  # 기본 카테고리 묶음이다.
     TRANSACTION_TYPES,  # 허용된 거래 타입 튜플이다.
 )  # 카테고리 상수 가져오기를 마친다.
-from budget_app.constants.cli import (  # CLI 터미널 관련 상수를 가져온다.
+from budget_app.constants.view_limits import (  # 화면 출력 개수 제한 관련 상수를 가져온다.
     DEFAULT_LIST_LIMIT,  # 거래 목록 기본 조회 개수다.
     DEFAULT_SUMMARY_TOP,  # 월별 요약 기본 상위 개수다.
-)  # CLI 상수 가져오기를 마친다.
+)  # 화면 제한 상수 가져오기를 마친다.
 from budget_app.constants.datetime import (  # 날짜 및 시간 관련 상수를 가져온다.
     DATE_FORMAT,  # 날짜 표준 포맷 문자열이다.
     DATE_PATTERN,  # 날짜 검사용 정규식 패턴이다.
@@ -16,7 +16,7 @@ from budget_app.constants.datetime import (  # 날짜 및 시간 관련 상수�
     MONTH_PATTERN,  # 월 검사용 정규식 패턴이다.
 )  # 날짜 상수 가져오기를 마친다.
 from budget_app.constants.error_messages import ErrorMessages  # 오류 원인 및 힌트 모음 클래스를 가져온다.
-from budget_app.constants.files import (  # 파일명 및 CSV 관련 상수를 가져온다.
+from budget_app.constants.repository_files import (  # 저장소 파일 및 CSV 관련 상수를 가져온다.
     BUDGETS_FILENAME,  # 예산 저장 파일 이름이다.
     CATEGORIES_FILENAME,  # 카테고리 저장 파일 이름이다.
     CSV_COLUMNS,  # CSV 열 순서 목록이다.

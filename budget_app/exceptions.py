@@ -3,7 +3,7 @@
 # 2. 에러 보관(init): 부모 클래스인 BudgetAppError가 생성되면서 오류 원인(message)과 해결 방법(hint)을 자기 자신(self)에 보관한다.
 # 3. 파이썬 시스템 등록(super): 조상 클래스인 Exception에 메시지를 넘겨주어 파이썬 표준 에러 시스템으로 등록한다.
 # 4. 상속 분류(inheritance): ValidationError, NotFoundError 등은 부모의 기능을 그대로 물려받아(pass) 에러의 종류(이름표)만 구분한다.
-# 5. 에러 수습(try-except): cli.py(화면단)에서 try-except로 에러를 가로채서, 프로그램이 튕기지 않고 화면에 친절하게 힌트를 출력한다.
+# 5. 에러 수습(try-except): cli 패키지(화면단)에서 try-except로 에러를 가로채서, 프로그램이 튕기지 않고 화면에 친절하게 힌트를 출력한다.
 
 
 class BudgetAppError(Exception):  # 파이썬 기본 에러인 Exception을 상속받아 프로그램 전용 기본 에러를 만든다.
