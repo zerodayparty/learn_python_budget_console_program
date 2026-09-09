@@ -446,6 +446,23 @@ class BudgetCliTest(unittest.TestCase):  # 실제 명령어 해석, 대화형 �
         self.assertIn("expense | food | 12000 | 점심식사 | meal", printed)  # 수정 전 거래 내용이 화면에 목록으로 출력되었는지 확인한다.
         self.assertIn(f"[수정 완료] id={tx.id}", printed)  # 정상적으로 수정이 완료되었는지 확인한다.
 
+    def test_interactive_menu_delete_shows_latest_transactions(self) -> None:  # 대화형 메뉴 5번 거래 삭제 선택 시 최근 10개 거래가 먼저 출력되는지 검증한다.
+        service = BudgetService(TransactionRepository(self.data_dir), CategoryStore(self.data_dir), BudgetStore(self.data_dir))  # CLI 테스트 저장소로 서비스를 조립한다.
+        tx = service.add_transaction("2026-08-01", "expense", "food", 12000, "점심식사", "meal")  # 테스트용 거래 한 건을 미리 추가한다.
+        console_inputs = [  # 대화형 콘솔에서 메뉴 5번을 선택하고 삭제 후 종료할 입력들이다.
+            "5",  # 메인 메뉴에서 5번(거래 삭제)을 선택한다.
+            tx.id,  # 출력된 목록을 보고 삭제할 거래 id를 입력한다.
+            "q",  # 프로그램을 정상 종료한다.
+        ]  # 대화형 입력 목록 구성을 마친다.
+        interactive_out = io.StringIO()  # 출력 내용을 담을 메모리 스트림을 준비한다.
+        with patch("builtins.input", side_effect=console_inputs), patch("sys.stdout", interactive_out):  # 키보드와 화면을 가로챈다.
+            exit_code = main(["--data-dir", str(self.data_dir)])  # 메인 함수를 실행한다.
+        self.assertEqual(0, exit_code)  # 정상 종료 코드 0인지 검증한다.
+        printed = interactive_out.getvalue()  # 출력된 전체 문자열을 가져온다.
+        self.assertIn("[최근 거래 목록 (최대 10개)]", printed)  # 삭제 전 최근 거래 목록 헤더가 출력되었는지 확인한다.
+        self.assertIn("expense | food | 12000 | 점심식사 | meal", printed)  # 삭제 전 거래 내용이 화면에 목록으로 출력되었는지 확인한다.
+        self.assertIn(f"[삭제 완료] id={tx.id}", printed)  # 정상적으로 삭제가 완료되었는지 확인한다.
+
 
 if __name__ == "__main__":  # 이 테스트 파일을 직접 실행했는지 확인한다.
     unittest.main()  # 현재 파일의 모든 test_ 메서드를 찾아 실행한다.

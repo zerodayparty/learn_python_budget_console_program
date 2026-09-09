@@ -124,6 +124,13 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
 
             elif choice == "5":  # 5번 거래 삭제를 선택한 경우다.
                 print_section_title("거래 삭제")  # 작업 소제목을 출력한다.
+                print("[최근 거래 목록 (최대 10개)]")  # 삭제할 거래 선택을 돕기 위해 최신순 최대 10건의 목록을 먼저 출력한다.
+                has_tx = False  # 거래 데이터 존재 여부를 기록할 플래그다.
+                for tx in service.list_transactions(DEFAULT_LIST_LIMIT):  # 최신 거래를 최대 10개까지 한 건씩 꺼낸다.
+                    has_tx = True  # 거래가 존재함을 표시한다.
+                    print_transaction(tx)  # 거래 정보를 한 줄로 출력한다.
+                if not has_tx:  # 등록된 거래가 하나도 없는 경우다.
+                    print("❌ ⚠️ 거래 데이터 없음")  # 거래 데이터 없음 안내 문구를 출력한다.
                 target_id = input("삭제할 거래 id: ").strip()  # 삭제할 id를 받는다.
                 if target_id:  # id가 입력되었는지 확인한다.
                     service.delete_transaction(target_id)  # 안전하게 거래를 삭제한다.
