@@ -535,6 +535,26 @@ class BudgetCliTest(unittest.TestCase):  # 실제 명령어 해석, 대화형 �
         self.assertIn("[완료]", printed)  # 올바른 입력 후 저장이 정상 완료되었는지 확인한다.
         self.assertTrue(out_csv_path.is_file())  # CSV 파일이 디스크에 실제 생성되었는지 확인한다.
 
+    def test_interactive_csv_export_default_filename_on_enter(self) -> None:  # 대화형 CSV 내보내기에서 엔터 입력 시 기본 파일명이 자동 생성되는지 검증한다.
+        service = BudgetService(TransactionRepository(self.data_dir), CategoryStore(self.data_dir), BudgetStore(self.data_dir))  # CLI 테스트 저장소로 서비스를 조립한다.
+        service.add_transaction("2026-07-20", "income", "salary", 3000000, "월급", "bonus")  # 7월 테스트용 거래를 1건 추가한다.
+        expected_csv_path = self.data_dir / "export_2026-07.csv"  # 엔터 입력 시 자동 생성되어야 할 대상 파일 경로다.
+        console_inputs = [  # 대화형 콘솔에서 엔터로 기본 파일명을 자동 생성하는 입력 목록이다.
+            "9",  # 메인 메뉴에서 9번(CSV 파일 처리)을 선택한다.
+            "2",  # 서브 작업에서 2번(내보내기)을 선택한다.
+            "",  # 파일 경로에서 아무것도 입력하지 않고 엔터를 눌러 자동 생성을 요청한다.
+            "2026-07",  # 내보낼 월을 입력한다.
+            "q",  # 프로그램을 정상 종료한다.
+        ]  # 대화형 입력 목록 구성을 마친다.
+        interactive_out = io.StringIO()  # 출력 내용을 담을 메모리 스트림을 준비한다.
+        with patch("builtins.input", side_effect=console_inputs), patch("sys.stdout", interactive_out):  # 입출력을 가로챈다.
+            exit_code = main(["--data-dir", str(self.data_dir)])  # 메인 함수를 실행한다.
+        self.assertEqual(0, exit_code)  # 정상 종료 코드 0인지 검증한다.
+        printed = interactive_out.getvalue()  # 출력된 전체 문자열을 가져온다.
+        self.assertIn("export_2026-07.csv", printed)  # 생성된 자동 파일명이 출력 문구에 포함되었는지 확인한다.
+        self.assertIn("[완료]", printed)  # 내보내기가 완료되었는지 확인한다.
+        self.assertTrue(expected_csv_path.is_file())  # export_2026-07.csv 파일이 실제로 생성되었는지 확인한다.
+
 
 if __name__ == "__main__":  # 이 테스트 파일을 직접 실행했는지 확인한다.
     unittest.main()  # 현재 파일의 모든 test_ 메서드를 찾아 실행한다.

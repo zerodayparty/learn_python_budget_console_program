@@ -210,18 +210,21 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
                         print(f"[건너뜀] {err}")  # 건너뛴 이유를 출력한다.
                     print(f"[완료] imported={imported}, skipped={skipped}")  # 최종 통계를 출력한다.
                 elif csv_action in ["2", "export"]:  # 내보내기를 선택한 경우다.
-                    while True:  # 유효한 저장 파일 경로를 입력받을 때까지 반복한다.
-                        csv_target = input("저장할 CSV 파일 경로: ").strip()  # 대상 파일 경로를 받는다.
-                        if not csv_target:  # 아무것도 입력하지 않은 경우다.
-                            print_error("저장할 파일 경로를 입력해야 한다.", "파일명과 확장자를 입력한다. 예: data/export.csv")  # 안내를 출력한다.
+                    custom_target: Optional[Path] = None  # 사용자가 직접 지정한 파일 경로를 담을 변수다.
+                    while True:  # 유효한 저장 파일 경로를 입력받거나 엔터(자동 생성)를 칠 때까지 반복한다.
+                        raw_target = input("저장할 CSV 파일 경로 (엔터 시 data/export_YYYY-MM.csv 자동 저장): ").strip()  # 대상 파일 경로를 받는다.
+                        if not raw_target:  # 아무것도 입력하지 않고 엔터를 친 경우다.
+                            custom_target = None  # 월 입력 후 기본 파일명으로 자동 생성하도록 표시한다.
+                            break  # 파일 경로 입력을 마친다.
+                        if raw_target.endswith("/") or raw_target.endswith("\\") or Path(raw_target).is_dir():  # 폴더 경로만 입력한 경우다.
+                            print_error("폴더 경로가 아닌 파일명을 입력해야 한다.", "경로 끝에 파일명을 포함하거나, 자동 저장을 원하면 엔터만 누른다.")  # 안내를 출력한다.
                             continue  # 다시 입력을 받는다.
-                        if csv_target.endswith("/") or csv_target.endswith("\\") or Path(csv_target).is_dir():  # 폴더 경로만 입력한 경우다.
-                            print_error("폴더 경로가 아닌 파일명을 입력해야 한다.", "경로 끝에 파일명을 포함한다. 예: data/export.csv")  # 안내를 출력한다.
-                            continue  # 다시 입력을 받는다.
+                        custom_target = Path(raw_target)  # 사용자가 직접 입력한 파일 경로 객체를 만든다.
                         break  # 검증을 통과했으므로 반복을 마친다.
                     e_month = str(prompt_until_valid("내보낼 월(YYYY-MM): ", validate_month))  # 내보낼 대상 월을 올바르게 입력받을 때까지 즉시 검증한다.
-                    count = service.export_csv(Path(csv_target), month=e_month)  # CSV로 내보낸다.
-                    print(f"[완료] {csv_target} ({count} records)")  # 완료 메시지를 출력한다.
+                    final_target = custom_target if custom_target is not None else (data_dir / f"export_{e_month}.csv")  # 엔터를 친 경우 data 폴더 아래 export_YYYY-MM.csv 파일명을 자동 생성한다.
+                    count = service.export_csv(final_target, month=e_month)  # CSV로 내보낸다.
+                    print(f"[완료] {final_target} ({count} records)")  # 완료 메시지를 출력한다.
                 else:  # 잘못된 번호를 누른 경우다.
                     print("❌ ⚠️ 잘못된 선택이다.")  # 안내를 출력한다.
 
