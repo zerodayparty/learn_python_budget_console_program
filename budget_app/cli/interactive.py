@@ -25,6 +25,7 @@ from budget_app.validators import (  # 입력값 검증 함수들을 가져온�
     validate_category_name,  # 카테고리 이름 검증 함수다.
     validate_date,  # 날짜 검증 함수다.
     validate_date_range,  # 날짜 순서 검증 함수다.
+    validate_month,  # 월 형식(YYYY-MM) 검증 함수다.
     validate_optional_category_name,  # 선택적 카테고리 검증 함수다.
     validate_optional_date,  # 선택적 날짜 검증 함수다.
     validate_optional_text,  # 선택적 텍스트 공백 검증 함수다.
@@ -152,12 +153,13 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
                 print_section_title("월 예산 관리")  # 작업 소제목을 출력한다.
                 print("<작업 선택>\n 1. 예산 설정(set)\n 2. 예산 조회(get)")  # 예산 관리 서브 메뉴 목록을 출력한다.
                 b_action = input("선택: ").strip().lower()  # 서브 작업 번호나 영문 이름을 입력받는다.
-                b_month = input("대상 월(YYYY-MM): ").strip()  # 대상 월을 받는다.
                 if b_action in ["1", "set"]:  # 예산 설정을 선택한 경우다.
-                    b_amount = input("설정할 예산 금액: ").strip()  # 금액을 받는다.
+                    b_month = str(prompt_until_valid("대상 월(YYYY-MM): ", validate_month))  # 올바른 대상 월을 입력받을 때까지 즉시 검증한다.
+                    b_amount = prompt_until_valid("설정할 예산 금액: ", validate_amount)  # 올바른 예산 금액을 입력받을 때까지 즉시 검증한다.
                     saved_amt = service.set_budget(b_month, b_amount)  # 예산을 저장한다.
                     print(f"[저장 완료] {b_month} 예산 {saved_amt}원")  # 완료 메시지를 출력한다.
                 elif b_action in ["2", "get"]:  # 예산 조회를 선택한 경우다.
+                    b_month = str(prompt_until_valid("대상 월(YYYY-MM): ", validate_month))  # 올바른 대상 월을 입력받을 때까지 즉시 검증한다.
                     saved_amt = service.get_budget(b_month)  # 예산을 조회한다.
                     if saved_amt is None:  # 저장된 예산이 없는지 확인한다.
                         print(f"{b_month}: 예산 설정 없음")  # 없음 메시지를 출력한다.

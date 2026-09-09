@@ -463,6 +463,34 @@ class BudgetCliTest(unittest.TestCase):  # 실제 명령어 해석, 대화형 �
         self.assertIn("expense | food | 12000 | 점심식사 | meal", printed)  # 삭제 전 거래 내용이 화면에 목록으로 출력되었는지 확인한다.
         self.assertIn(f"[삭제 완료] id={tx.id}", printed)  # 정상적으로 삭제가 완료되었는지 확인한다.
 
+    def test_interactive_budget_immediate_validation(self) -> None:  # 월 예산 관리(7번)에서 대상 월과 금액의 실시간 검증을 테스트한다.
+        console_inputs = [  # 대화형 콘솔에서 월 예산 설정을 시도하는 입력 목록이다.
+            "7",  # 메인 메뉴에서 7번(월 예산 관리)을 선택한다.
+            "1",  # 서브 작업에서 1번(예산 설정)을 선택한다.
+            "2026-99",  # 달력에 없는 잘못된 월을 입력해 오류를 유발한다.
+            "2026-11",  # 즉시 다시 물어볼 때 올바른 월을 재입력한다.
+            "-50000",  # 음수 금액을 입력해 오류를 유발한다.
+            "450000",  # 즉시 다시 물어볼 때 올바른 양의 정수 금액을 재입력한다.
+            "7",  # 메인 메뉴에서 7번(월 예산 관리)을 다시 선택한다.
+            "2",  # 이번에는 2번(예산 조회)을 선택한다.
+            "invalid-month",  # 잘못된 형식의 월을 입력해 오류를 유발한다.
+            "2026-11",  # 즉시 다시 물어볼 때 올바른 월을 재입력한다.
+            "7",  # 메인 메뉴에서 7번(월 예산 관리)을 다시 선택한다.
+            "99",  # 서브 작업 선택에서 잘못된 번호를 입력한다.
+            "q",  # 프로그램을 정상 종료한다.
+        ]  # 대화형 입력 목록 구성을 마친다.
+        interactive_out = io.StringIO()  # 출력 내용을 담을 메모리 스트림을 준비한다.
+        with patch("builtins.input", side_effect=console_inputs), patch("sys.stdout", interactive_out):  # 입출력을 가로챈다.
+            exit_code = main(["--data-dir", str(self.data_dir)])  # 메인 함수를 실행한다.
+        self.assertEqual(0, exit_code)  # 정상 종료 코드 0인지 검증한다.
+        printed = interactive_out.getvalue()  # 출력된 전체 문자열을 가져온다.
+        self.assertIn("존재하지 않는 월이다", printed)  # 잘못된 월 입력 시 즉시 오류가 출력되었는지 확인한다.
+        self.assertIn("금액은 0보다 커야 한다", printed)  # 잘못된 금액 입력 시 즉시 오류가 출력되었는지 확인한다.
+        self.assertIn("[저장 완료] 2026-11 예산 450000원", printed)  # 올바른 재입력 후 저장이 정상 완료되었는지 확인한다.
+        self.assertIn("월 형식이 올바르지 않다", printed)  # 조회 시 잘못된 월 입력에 대해 즉시 오류가 출력되었는지 확인한다.
+        self.assertIn("2026-11: 예산 450000원", printed)  # 올바른 월 재입력 후 조회가 정상 출력되었는지 확인한다.
+        self.assertIn("❌ ⚠️ 잘못된 선택이다.", printed)  # 서브 작업에서 잘못된 번호 입력 시 오류 안내가 출력되었는지 확인한다.
+
 
 if __name__ == "__main__":  # 이 테스트 파일을 직접 실행했는지 확인한다.
     unittest.main()  # 현재 파일의 모든 test_ 메서드를 찾아 실행한다.
