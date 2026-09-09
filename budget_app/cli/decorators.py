@@ -30,3 +30,27 @@ def handle_cli_errors(function: Callable[..., int]) -> Callable[..., int]:  # �
             return 1  # 일반 실행 실패를 뜻하는 0이 아닌 종료 코드를 돌려준다.
 
     return wrapper  # 공통 오류 처리 기능이 붙은 새 함수를 돌려준다.
+
+
+
+# 🟢 해설
+
+# 공통 오류 처리는 `decorators.py`의 `handle_cli_errors()` 데코레이터가 담당하고, `cli.py`의 `execute()` 위에 `@handle_cli_errors`로 실제 적용했다.  
+
+# 오류 전달 흐름:  
+# `Validator 또는 Repository에서 오류 발생 → BudgetService를 지나 execute() 밖으로 전달 → decorator wrapper()가 catch → 원인과 힌트 출력 → 0이 아닌 값 반환`  
+
+# | 잡는 오류 | 사용자 출력 | 반환 코드 |  
+# | --- | --- | --- |
+# | `BudgetAppError` 계열 | `[오류] message`, `[힌트] hint` | 2 |  
+# | `OSError`, `UnicodeError`, `csv.Error` | 파일 처리 원인과 경로·권한·UTF-8 확인 힌트 | 3 |  
+# | `EOFError`, `KeyboardInterrupt` | 입력 중단 원인과 재실행 힌트 | 130 |  
+# | 그 밖의 `Exception` | 예상하지 못한 문제와 데이터 확인 힌트 | 1 |  
+
+# | 종료 코드 | 코드가 의미하는 상황 |  
+# | --- | --- |
+# | 0 | 정상 실행 |  
+# | 1 | 분류하지 못한 실행 오류 |  
+# | 2 | 검증 실패, 없는 데이터, 충돌, 손상 데이터 또는 argparse 사용법 오류 |  
+# | 3 | 파일 접근, 문자 인코딩, CSV 형식 오류 |  
+# | 130 | 사용자가 Control+C 또는 입력 종료로 중단 |  

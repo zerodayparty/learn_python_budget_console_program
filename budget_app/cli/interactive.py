@@ -139,15 +139,12 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
                 else:  # id가 비어 있는 경우다.
                     print_error("❌ ⚠️ 삭제할 거래 id를 입력해야 한다.")  # 안내를 출력한다.
 
-            elif choice == "6":  # 6번 월별 요약을 선택한 경우다.
-                print_section_title("월별 요약 및 예산")  # 작업 소제목을 출력한다.
-                month = input("조회할 월(YYYY-MM): ").strip()  # 조회할 월을 받는다.
-                if month:  # 월이 입력되었는지 확인한다.
-                    raw_top = input(f"지출 상위 카테고리 개수 (기본값: {DEFAULT_SUMMARY_TOP}): ").strip()  # 상위 개수를 받는다.
-                    top = int(raw_top) if raw_top.isdigit() and int(raw_top) > 0 else DEFAULT_SUMMARY_TOP  # 기본값을 정한다.
-                    print_summary(service.monthly_summary(month, top))  # 요약을 출력한다.
-                else:  # 월이 비어 있는 경우다.
-                    print_error("❌ ⚠️ 조회할 월(YYYY-MM)을 입력해야 한다.")  # 안내를 출력한다.
+            elif choice == "6":  # 6번 월별 요약 및 예산 현황을 선택한 경우다.
+                print_section_title("월별 요약 및 예산 현황")  # 작업 소제목을 출력한다.
+                month = str(prompt_until_valid("조회할 월(YYYY-MM): ", validate_month))  # 올바른 조회 월을 입력받을 때까지 즉시 검증한다.
+                raw_top = input(f"지출 상위 카테고리 개수 (기본값: {DEFAULT_SUMMARY_TOP}): ").strip()  # 상위 개수를 받는다.
+                top = int(raw_top) if raw_top.isdigit() and int(raw_top) > 0 else DEFAULT_SUMMARY_TOP  # 숫자가 아니면 기본값을 사용한다.
+                print_summary(service.monthly_summary(month, top))  # 계산된 월별 요약을 화면에 출력한다.
 
             elif choice == "7":  # 7번 예산 관리를 선택한 경우다.
                 print_section_title("월 예산 관리")  # 작업 소제목을 출력한다.
