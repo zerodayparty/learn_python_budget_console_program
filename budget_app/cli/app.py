@@ -196,26 +196,28 @@ def execute(args: argparse.Namespace) -> int:  # argparse가 해석한 명령 �
 
 # 🔥 main 실행
 def main(argv: Optional[List[str]] = None) -> int:  # 터미널 또는 테스트에서 프로그램을 시작하는 진입 함수다.
-    tokens = sys.argv[1:] if argv is None else argv  # 인자가 없으면 실제 터미널 인자를 가져오고 있으면 전달받은 인자를 쓴다.
-    
-    # ✅ [대화형 콘솔 기반] 보통의 경우 이렇게 진입하게 된다.
-    if not tokens:  # 터미널에 아무런 옵션이나 명령어 없이 실행된 경우다.
-        return run_interactive_console(Path("data"))  # 🔥 기본 data 폴더로 대화형 콘솔 메뉴를 실행한다.
-    
-    
-    # ❌ ✅ 오직 --data-dir 저장 폴더만 지정하고 하위 명령이 없는 경우다.
-    # 이 경우에는 별로 테스트 폴더에 테스트 할 떄나 사용 할 것 같다.)
-    if len(tokens) == 2 and tokens[0] == "--data-dir":  
-        return run_interactive_console(Path(tokens[1]))  # 지정한 폴더로 대화형 콘솔 메뉴를 실행한다.
-    
-    
-    # ❌ ✅ 명시적으로 대화형 콘솔 명령을 친 경우다. 
-    # (이렇게 치는 경우가 없을 것 같다...)
-    if len(tokens) == 1 and tokens[0] in ["interactive", "console", "repl"]:  
-        return run_interactive_console(Path("data"))  # 기본 data 폴더로 대화형 콘솔 메뉴를 실행한다.
-    
-    
-    # ✅ [옵션형 기반] 위 세가지 경우 외의 경우에는 '옵션형 기반'으로 작동된다.
-    parser = build_parser()  # 모든 명령과 옵션이 등록된 해석기를 만든다.
-    args = parser.parse_args(argv)  # 터미널 인자 또는 테스트 인자를 읽어 Namespace 객체로 바꾼다.
-    return execute(args)  # 해석된 명령을 실행하고 종료 코드를 돌려준다.
+    try:  # 최상단에서 키보드 중단 및 입력 종료 예외를 감싸 스택트레이스를 방지한다.
+        tokens = sys.argv[1:] if argv is None else argv  # 인자가 없으면 실제 터미널 인자를 가져오고 있으면 전달받은 인자를 쓴다.
+        
+        # ✅ [대화형 콘솔 기반] 보통의 경우 이렇게 진입하게 된다.
+        if not tokens:  # 터미널에 아무런 옵션이나 명령어 없이 실행된 경우다.
+            return run_interactive_console(Path("data"))  # 🔥 기본 data 폴더로 대화형 콘솔 메뉴를 실행한다.
+        
+        # ❌ ✅ 오직 --data-dir 저장 폴더만 지정하고 하위 명령이 없는 경우다.
+        # 이 경우에는 별로 테스트 폴더에 테스트 할 떄나 사용 할 것 같다.)
+        if len(tokens) == 2 and tokens[0] == "--data-dir":  
+            return run_interactive_console(Path(tokens[1]))  # 지정한 폴더로 대화형 콘솔 메뉴를 실행한다.
+        
+        # ❌ ✅ 명시적으로 대화형 콘솔 명령을 친 경우다. 
+        # (이렇게 치는 경우가 없을 것 같다...)
+        if len(tokens) == 1 and tokens[0] in ["interactive", "console", "repl"]:  
+            return run_interactive_console(Path("data"))  # 기본 data 폴더로 대화형 콘솔 메뉴를 실행한다.
+        
+        # ✅ [옵션형 기반] 위 세가지 경우 외의 경우에는 '옵션형 기반'으로 작동된다.
+        parser = build_parser()  # 모든 명령과 옵션이 등록된 해석기를 만든다.
+        args = parser.parse_args(argv)  # 터미널 인자 또는 테스트 인자를 읽어 Namespace 객체로 바꾼다.
+        return execute(args)  # 해석된 명령을 실행하고 종료 코드를 돌려준다.
+    except (EOFError, KeyboardInterrupt):  # 최상위 레벨에서 잡힌 중단 예외를 처리한다.
+        print("\n[오류] 사용자가 강제로 종료하여 프로그램이 중단되었습니다.")  # 프로그램이 중단된 원인을 출력한다.
+        print("[힌트] 명령을 다시 실행하고 입력을 끝까지 완료한다.")  # 해결 힌트를 출력한다.
+        return 130  # 사용자 중단 종료 코드를 돌려준다.

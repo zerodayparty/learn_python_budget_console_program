@@ -21,7 +21,7 @@ def handle_cli_errors(function: Callable[..., int]) -> Callable[..., int]:  # �
             print("[힌트] 경로, 읽기·쓰기 권한, UTF-8 파일 형식을 확인한다.")  # 공통 해결 방법을 출력한다.
             return 3  # 파일 처리 실패를 구분하는 0이 아닌 종료 코드를 돌려준다.
         except (EOFError, KeyboardInterrupt):  # 입력 종료나 Control+C 취소를 잡는다.
-            print("[오류] 사용자 입력이 중단되었다.")  # 프로그램이 중단된 원인을 출력한다.
+            print("[오류] 사용자가 강제로 종료하여 프로그램이 중단되었습니다.")  # 프로그램이 중단된 원인을 출력한다.
             print("[힌트] 명령을 다시 실행하고 입력을 끝까지 완료한다.")  # 다시 실행하는 해결 방법을 출력한다.
             return 130  # 터미널에서 사용자 중단을 나타내는 종료 코드를 돌려준다.
         except Exception as error:  # 미리 분류하지 못한 오류도 스택트레이스 없이 잡는다.

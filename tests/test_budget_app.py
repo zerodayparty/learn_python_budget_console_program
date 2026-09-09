@@ -555,6 +555,30 @@ class BudgetCliTest(unittest.TestCase):  # 실제 명령어 해석, 대화형 �
         self.assertIn("[완료]", printed)  # 내보내기가 완료되었는지 확인한다.
         self.assertTrue(expected_csv_path.is_file())  # export_2026-07.csv 파일이 실제로 생성되었는지 확인한다.
 
+    def test_interactive_action_cancel_on_ctrl_c_returns_to_menu(self) -> None:  # 세부 메뉴 입력 중 Ctrl+C(KeyboardInterrupt) 시 스택트레이스 없이 메인 메뉴로 복귀하는지 검증한다.
+        console_inputs = [  # 1번 거래 추가를 시도하다가 날짜 입력에서 취소하고 q로 종료하는 입력 시퀀스다.
+            "1",  # 메인 메뉴에서 1번(거래 추가)을 선택한다.
+            KeyboardInterrupt(),  # 날짜 입력 프롬프트에서 사용자가 Ctrl+C를 누른 상황을 모킹한다.
+            "q",  # 메인 메뉴로 복귀한 후 프로그램을 정상 종료한다.
+        ]  # 대화형 입력 목록 구성을 마친다.
+        interactive_out = io.StringIO()  # 출력 내용을 담을 메모리 스트림을 준비한다.
+        with patch("builtins.input", side_effect=console_inputs), patch("sys.stdout", interactive_out):  # 입출력을 가로챈다.
+            exit_code = main(["--data-dir", str(self.data_dir)])  # 메인 함수를 실행한다.
+        self.assertEqual(0, exit_code)  # 정상 종료 코드 0인지 검증한다.
+        printed = interactive_out.getvalue()  # 출력된 전체 문자열을 가져온다.
+        self.assertIn("[오류] 사용자가 강제로 종료하여 프로그램이 중단되었습니다.", printed)  # 인터럽트 오류 메시지가 출력되었는지 확인한다.
+        self.assertIn("[힌트] 작업이 취소되었다. 메인 메뉴로 돌아간다.", printed)  # 메뉴 복귀 힌트가 출력되었는지 확인한다.
+        self.assertIn("안녕히 가세요", printed)  # 메인 메뉴로 복귀 후 q 입력으로 정상 종료되었는지 확인한다.
+
+    def test_interactive_menu_ctrl_d_prints_error_and_hint(self) -> None:  # 메인 메뉴에서 Ctrl+D(EOFError) 시 스택트레이스 없이 오류 및 힌트를 출력하고 종료하는지 검증한다.
+        interactive_out = io.StringIO()  # 출력 내용을 담을 메모리 스트림을 준비한다.
+        with patch("builtins.input", side_effect=EOFError()), patch("sys.stdout", interactive_out):  # 메인 메뉴에서 EOFError 발생을 모킹한다.
+            exit_code = main(["--data-dir", str(self.data_dir)])  # 메인 함수를 실행한다.
+        self.assertEqual(0, exit_code)  # 정상 종료 코드 0인지 검증한다.
+        printed = interactive_out.getvalue()  # 출력된 전체 문자열을 가져온다.
+        self.assertIn("[오류] 사용자가 강제로 종료하여 프로그램이 중단되었습니다.", printed)  # 오류 메시지가 출력되었는지 확인한다.
+        self.assertIn("[힌트] 프로그램을 다시 실행하거나 q를 입력해 안전하게 종료한다.", printed)  # 힌트가 출력되었는지 확인한다.
+
 
 if __name__ == "__main__":  # 이 테스트 파일을 직접 실행했는지 확인한다.
     unittest.main()  # 현재 파일의 모든 test_ 메서드를 찾아 실행한다.

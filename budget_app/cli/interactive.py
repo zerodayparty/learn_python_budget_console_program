@@ -53,7 +53,8 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
             choice = input("\n메뉴 번호를 선택한다: ").strip().lower()  # 사용자로부터 원하는 메뉴 번호를 입력받는다.
 
         except (EOFError, KeyboardInterrupt):  # Ctrl+D 또는 Ctrl+C 등의 강제 종료 신호가 들어왔는지 확인한다.
-            print("\n[강제종료 대응] 사용자의 강제종료로 인해 프로그램이 종료되었습니다.")  # 종료 안내 문구를 출력한다.
+            print("\n[오류] 사용자가 강제로 종료하여 프로그램이 중단되었습니다.")  # 프로그램이 중단된 원인을 출력한다.
+            print("[힌트] 프로그램을 다시 실행하거나 q를 입력해 안전하게 종료한다.")  # 해결 힌트를 출력한다.
             return 0  # 정상 종료 코드를 돌려준다.
 
         if choice in ["q", "quit", "exit"]:  # 사용자가 종료 메뉴를 선택했는지 확인한다.
@@ -233,3 +234,6 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
 
         except (ValidationError, NotFoundError, ConflictError) as error:  # 서비스에서 발생한 비즈니스 검증 오류를 잡는다.
             print_error(error.message, error.hint)  # 에러 메시지와 힌트를 출력한다.
+        except (EOFError, KeyboardInterrupt):  # 세부 입력 도중 사용자가 취소(Ctrl+C) 또는 입력 종료(Ctrl+D)를 누른 경우다.
+            print("\n[오류] 사용자가 강제로 종료하여 프로그램이 중단되었습니다.")  # 프로그램이 중단된 원인을 출력한다.
+            print("[힌트] 작업이 취소되었다. 메인 메뉴로 돌아간다.")  # 해결 힌트와 안내를 출력한다.
