@@ -195,14 +195,31 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
                 print("<작업 선택>\n 1. 가져오기(import)\n 2. 내보내기(export)")  # CSV 처리 서브 메뉴 목록을 출력한다.
                 csv_action = input("선택: ").strip().lower()  # 서브 작업 번호나 영문 이름을 입력받는다.
                 if csv_action in ["1", "import"]:  # 가져오기를 선택한 경우다.
-                    csv_source = input("가져올 CSV 파일 경로: ").strip()  # 파일 경로를 받는다.
-                    imported, skipped, errors = service.import_csv(Path(csv_source))  # CSV를 가져온다.
+                    while True:  # 유효한 원본 파일을 입력받을 때까지 반복한다.
+                        csv_source = input("가져올 CSV 파일 경로: ").strip()  # 파일 경로를 받는다.
+                        if not csv_source:  # 아무것도 입력하지 않은 경우다.
+                            print_error("가져올 파일 경로를 입력해야 한다.", "경로와 파일명을 입력한다. 예: data/backup.csv")  # 안내를 출력한다.
+                            continue  # 다시 입력을 받는다.
+                        source_path = Path(csv_source)  # 경로 객체로 변환한다.
+                        if not source_path.is_file():  # 실제 존재하는 파일인지 검사한다.
+                            print_error("가져올 CSV 파일이 존재하지 않는다.", "경로와 파일명을 확인한다. 예: data/backup.csv")  # 안내를 출력한다.
+                            continue  # 다시 입력을 받는다.
+                        break  # 검증을 통과했으므로 반복을 마친다.
+                    imported, skipped, errors = service.import_csv(source_path)  # CSV를 가져온다.
                     for err in errors:  # 오류 내역을 순회한다.
                         print(f"[건너뜀] {err}")  # 건너뛴 이유를 출력한다.
                     print(f"[완료] imported={imported}, skipped={skipped}")  # 최종 통계를 출력한다.
                 elif csv_action in ["2", "export"]:  # 내보내기를 선택한 경우다.
-                    csv_target = input("저장할 CSV 파일 경로: ").strip()  # 대상 경로를 받는다.
-                    e_month = input("내보낼 월(YYYY-MM, 생략 시 전체): ").strip() or None  # 월 조건을 받는다.
+                    while True:  # 유효한 저장 파일 경로를 입력받을 때까지 반복한다.
+                        csv_target = input("저장할 CSV 파일 경로: ").strip()  # 대상 파일 경로를 받는다.
+                        if not csv_target:  # 아무것도 입력하지 않은 경우다.
+                            print_error("저장할 파일 경로를 입력해야 한다.", "파일명과 확장자를 입력한다. 예: data/export.csv")  # 안내를 출력한다.
+                            continue  # 다시 입력을 받는다.
+                        if csv_target.endswith("/") or csv_target.endswith("\\") or Path(csv_target).is_dir():  # 폴더 경로만 입력한 경우다.
+                            print_error("폴더 경로가 아닌 파일명을 입력해야 한다.", "경로 끝에 파일명을 포함한다. 예: data/export.csv")  # 안내를 출력한다.
+                            continue  # 다시 입력을 받는다.
+                        break  # 검증을 통과했으므로 반복을 마친다.
+                    e_month = str(prompt_until_valid("내보낼 월(YYYY-MM): ", validate_month))  # 내보낼 대상 월을 올바르게 입력받을 때까지 즉시 검증한다.
                     count = service.export_csv(Path(csv_target), month=e_month)  # CSV로 내보낸다.
                     print(f"[완료] {csv_target} ({count} records)")  # 완료 메시지를 출력한다.
                 else:  # 잘못된 번호를 누른 경우다.

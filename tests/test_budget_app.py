@@ -512,6 +512,29 @@ class BudgetCliTest(unittest.TestCase):  # 실제 명령어 해석, 대화형 �
         self.assertIn("총 지출: 15000원", printed)  # 올바른 월 입력 후 정상적으로 요약 결과가 출력되었는지 확인한다.
         self.assertIn("지출 카테고리 TOP", printed)  # 상위 지출 카테고리 목록이 출력되었는지 확인한다.
 
+    def test_interactive_csv_export_validation(self) -> None:  # 대화형 CSV 내보내기(9번)의 파일 경로 및 대상 월 실시간 검증을 테스트한다.
+        service = BudgetService(TransactionRepository(self.data_dir), CategoryStore(self.data_dir), BudgetStore(self.data_dir))  # CLI 테스트 저장소로 서비스를 조립한다.
+        service.add_transaction("2026-08-10", "expense", "food", 15000, "점심식사", "meal")  # 8월 테스트용 거래를 1건 추가한다.
+        out_csv_path = self.data_dir / "valid_export.csv"  # 정상 출력할 CSV 파일 경로다.
+        console_inputs = [  # 대화형 콘솔에서 9번 CSV 내보내기를 실행하는 입력 목록이다.
+            "9",  # 메인 메뉴에서 9번(CSV 파일 처리)을 선택한다.
+            "2",  # 서브 작업에서 2번(내보내기)을 선택한다.
+            "data/",  # 폴더 경로만 입력하여 파일 경로 오류를 유발한다.
+            str(out_csv_path),  # 즉시 다시 물어볼 때 올바른 파일 경로를 입력한다.
+            "2026-99",  # 존재하지 않는 월을 입력하여 월 오류를 유발한다.
+            "2026-08",  # 즉시 다시 물어볼 때 올바른 월을 재입력한다.
+            "q",  # 프로그램을 정상 종료한다.
+        ]  # 대화형 입력 목록 구성을 마친다.
+        interactive_out = io.StringIO()  # 출력 내용을 담을 메모리 스트림을 준비한다.
+        with patch("builtins.input", side_effect=console_inputs), patch("sys.stdout", interactive_out):  # 입출력을 가로챈다.
+            exit_code = main(["--data-dir", str(self.data_dir)])  # 메인 함수를 실행한다.
+        self.assertEqual(0, exit_code)  # 정상 종료 코드 0인지 검증한다.
+        printed = interactive_out.getvalue()  # 출력된 전체 문자열을 가져온다.
+        self.assertIn("폴더 경로가 아닌 파일명을 입력해야 한다", printed)  # 폴더 경로 입력 시 즉시 오류가 출력되었는지 확인한다.
+        self.assertIn("존재하지 않는 월이다", printed)  # 잘못된 월 입력 시 즉시 오류가 출력되었는지 확인한다.
+        self.assertIn("[완료]", printed)  # 올바른 입력 후 저장이 정상 완료되었는지 확인한다.
+        self.assertTrue(out_csv_path.is_file())  # CSV 파일이 디스크에 실제 생성되었는지 확인한다.
+
 
 if __name__ == "__main__":  # 이 테스트 파일을 직접 실행했는지 확인한다.
     unittest.main()  # 현재 파일의 모든 test_ 메서드를 찾아 실행한다.
