@@ -3,7 +3,8 @@
 from typing import Callable, Optional  # 함수 타입과 값이 없을 수도 있는 타입을 표시하기 위해 가져온다.
 
 from budget_app.cli.output import print_error  # CLI 전용 오류와 힌트 출력 도구를 가져온다.
-from budget_app.constants import ErrorMessages  # 오류 원인 및 해결 힌트 모음 클래스를 가져온다.
+from budget_app.cli.views import print_transaction  # 거래 한 줄 출력 뷰 함수를 가져온다.
+from budget_app.constants import DEFAULT_LIST_LIMIT, ErrorMessages  # 기본 목록 개수 상수와 오류 메시지 클래스를 가져온다.
 from budget_app.exceptions import NotFoundError, ValidationError  # 입력 오류와 데이터 없음 오류를 다루기 위해 가져온다.
 from budget_app.models import Transaction  # 수정 결과로 돌려줄 거래 데이터 클래스를 가져온다.
 from budget_app.services import BudgetService  # 카테고리 확인 및 거래 수정을 호출할 서비스 객체 타입이다.
@@ -42,6 +43,13 @@ def prompt_registered_category(service: BudgetService) -> str:  # 등록된 카�
 def prompt_update_interactive(service: BudgetService, transaction_id: Optional[str] = None) -> Transaction:  # 거래 id를 찾고 수정할 값을 대화형으로 입력받아 수정한다.
     target_id = transaction_id  # 매개변수로 전달된 거래 id를 우선 대상 변수에 넣는다.
     if target_id is None or not target_id.strip():  # 거래 id가 전달되지 않았거나 빈칸인지 확인한다.
+        print("[최근 거래 목록 (최대 10개)]")  # 수정할 거래 선택을 돕기 위해 최신순 최대 10건의 목록을 먼저 출력한다.
+        has_tx = False  # 거래 데이터 존재 여부를 기록할 플래그다.
+        for tx in service.list_transactions(DEFAULT_LIST_LIMIT):  # 최신 거래를 최대 10개까지 한 건씩 꺼낸다.
+            has_tx = True  # 거래가 존재함을 표시한다.
+            print_transaction(tx)  # 거래 정보를 한 줄로 출력한다.
+        if not has_tx:  # 등록된 거래가 하나도 없는 경우다.
+            print("❌ ⚠️ 거래 데이터 없음")  # 거래 데이터 없음 안내 문구를 출력한다.
         target_id = input("수정할 거래 id: ").strip()  # 사용자에게 직접 수정할 거래 id를 입력받는다.
 
     found = service.transactions.find_by_id(target_id)  # 저장소에서 해당 id를 가진 거래가 있는지 찾아본다.

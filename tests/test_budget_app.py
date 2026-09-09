@@ -249,6 +249,7 @@ class BudgetCliTest(unittest.TestCase):  # 실제 명령어 해석, 대화형 �
         with patch("builtins.input", side_effect=update_inputs), patch("sys.stdout", update_output):  # 대화형 입출력을 연결한다.
             exit_code = main(["--data-dir", str(self.data_dir), "update"])  # 대화형 update 명령을 실행한다.
         self.assertEqual(0, exit_code)  # 정상 종료 코드 0이 반환되었는지 확인한다.
+        self.assertIn("[최근 거래 목록 (최대 10개)]", update_output.getvalue())  # 수정 전 최근 거래 목록 헤더가 먼저 출력되었는지 확인한다.
         self.assertIn(f"[수정 완료] id={target_id}", update_output.getvalue())  # 수정 완료 메시지가 화면에 나왔는지 확인한다.
         updated_tx = repo.find_by_id(target_id)  # 수정된 거래를 id로 가져온다.
         self.assertEqual(25000, updated_tx.amount)  # 변경한 금액이 25000원으로 영구 저장되었는지 검증한다.
@@ -421,6 +422,29 @@ class BudgetCliTest(unittest.TestCase):  # 실제 명령어 해석, 대화형 �
         self.assertIn("거래 타입이 올바르지 않다.", printed)  # 거래 타입 스페이스 에러를 확인한다.
         self.assertIn("메모 검색어에 공백만 입력할 수 없다.", printed)  # 메모 스페이스 에러를 확인한다.
         self.assertIn("포함 태그에 공백만 입력할 수 없다.", printed)  # 태그 스페이스 에러를 확인한다.
+
+    def test_interactive_menu_update_shows_latest_transactions(self) -> None:  # 대화형 메뉴 4번 거래 수정 선택 시 최근 10개 거래가 먼저 출력되는지 검증한다.
+        service = BudgetService(TransactionRepository(self.data_dir), CategoryStore(self.data_dir), BudgetStore(self.data_dir))  # CLI 테스트 저장소로 서비스를 조립한다.
+        tx = service.add_transaction("2026-08-01", "expense", "food", 12000, "점심식사", "meal")  # 테스트용 거래 한 건을 미리 추가한다.
+        console_inputs = [  # 대화형 콘솔에서 메뉴 4번을 선택하고 수정 후 종료할 입력들이다.
+            "4",  # 메인 메뉴에서 4번(거래 수정)을 선택한다.
+            tx.id,  # 출력된 목록을 보고 수정할 거래 id를 입력한다.
+            "",  # 날짜 유지
+            "",  # 타입 유지
+            "",  # 카테고리 유지
+            "15000",  # 금액을 15000원으로 변경한다.
+            "",  # 메모 유지
+            "",  # 태그 유지
+            "q",  # 프로그램을 정상 종료한다.
+        ]  # 대화형 입력 목록 구성을 마친다.
+        interactive_out = io.StringIO()  # 출력 내용을 담을 메모리 스트림을 준비한다.
+        with patch("builtins.input", side_effect=console_inputs), patch("sys.stdout", interactive_out):  # 키보드와 화면을 가로챈다.
+            exit_code = main(["--data-dir", str(self.data_dir)])  # 메인 함수를 실행한다.
+        self.assertEqual(0, exit_code)  # 정상 종료 코드 0인지 검증한다.
+        printed = interactive_out.getvalue()  # 출력된 전체 문자열을 가져온다.
+        self.assertIn("[최근 거래 목록 (최대 10개)]", printed)  # 수정 전 최근 거래 목록 헤더가 출력되었는지 확인한다.
+        self.assertIn("expense | food | 12000 | 점심식사 | meal", printed)  # 수정 전 거래 내용이 화면에 목록으로 출력되었는지 확인한다.
+        self.assertIn(f"[수정 완료] id={tx.id}", printed)  # 정상적으로 수정이 완료되었는지 확인한다.
 
 
 if __name__ == "__main__":  # 이 테스트 파일을 직접 실행했는지 확인한다.
