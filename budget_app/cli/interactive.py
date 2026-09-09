@@ -1,9 +1,11 @@
 # 이 파일은 사용자가 프로그램을 종료할 때까지 화면에 메뉴를 띄우고 작업을 이어가는 대화형 콘솔(TUI)을 담당한다.
 
 from pathlib import Path  # 가계부 데이터가 저장된 폴더 경로를 다루기 위해 가져온다.
+from typing import Optional  # 값이 없거나(None) 있을 수 있는 타입을 표시하기 위해 가져온다.
 
 from budget_app.cli.output import print_error, print_section_title  # CLI 전용 표준 출력 도구들을 가져온다.
 from budget_app.cli.prompt import (  # 사용자 대화형 입력을 유도하는 함수들을 가져온다.
+    prompt_optional_valid,  # 생략 가능한 입력값 검증 도우미 함수다.
     prompt_registered_category,  # 등록된 카테고리만 입력받는 함수다.
     prompt_until_valid,  # 검증을 통과할 때까지 반복 입력받는 함수다.
     prompt_update_interactive,  # 거래 수정 필드를 하나씩 대화형으로 묻는 함수다.
@@ -14,11 +16,21 @@ from budget_app.cli.views import (  # 화면에 데이터를 꾸며서 보여주
     print_summary,  # 월별 요약 통계 출력 함수다.
     print_transaction,  # 거래 한 줄 출력 함수다.
 )  # 뷰 함수 가져오기를 마친다.
-from budget_app.constants import DEFAULT_LIST_LIMIT, DEFAULT_SUMMARY_TOP  # 기본 출력 개수(10개, 3개) 상수를 가져온다.
+from budget_app.constants import DEFAULT_LIST_LIMIT, DEFAULT_SUMMARY_TOP, ErrorMessages  # 기본 출력 개수와 에러 메시지 상수를 가져온다.
 from budget_app.exceptions import ConflictError, NotFoundError, ValidationError  # 대화형 메뉴에서 잡을 비즈니스 에러들을 가져온다.
 from budget_app.repositories import BudgetStore, CategoryStore, TransactionRepository  # 저장 파일 3개를 다루는 저장소들을 가져온다.
 from budget_app.services import BudgetService  # 가계부 핵심 계산 및 저장 규칙을 실행할 서비스를 가져온다.
-from budget_app.validators import validate_amount, validate_date, validate_transaction_type  # 입력값 검증 함수들을 가져온다.
+from budget_app.validators import (  # 입력값 검증 함수들을 가져온다.
+    validate_amount,  # 금액 검증 함수다.
+    validate_category_name,  # 카테고리 이름 검증 함수다.
+    validate_date,  # 날짜 검증 함수다.
+    validate_date_range,  # 날짜 순서 검증 함수다.
+    validate_optional_category_name,  # 선택적 카테고리 검증 함수다.
+    validate_optional_date,  # 선택적 날짜 검증 함수다.
+    validate_optional_text,  # 선택적 텍스트 공백 검증 함수다.
+    validate_optional_transaction_type,  # 선택적 거래 타입 검증 함수다.
+    validate_transaction_type,  # 거래 타입 검증 함수다.
+)  # 검증 함수 가져오기를 마친다.
 
 
 def _build_service(data_dir: Path) -> BudgetService:  # 지정된 데이터 폴더의 저장소들을 조립해 서비스 객체를 만든다.
@@ -73,12 +85,31 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
 
             elif choice == "3":  # 3번 조건별 검색을 선택한 경우다.
                 print_section_title("조건별 거래 검색 (생략하려면 엔터를 누른다)")  # 작업 소제목을 출력한다.
-                q_date_from = input("시작 날짜(YYYY-MM-DD): ").strip() or None  # 시작 날짜 조건을 받는다.
-                q_date_to = input("종료 날짜(YYYY-MM-DD): ").strip() or None  # 종료 날짜 조건을 받는다.
-                q_category = input("카테고리: ").strip() or None  # 카테고리 조건을 받는다.
-                q_type = input("거래 타입(income/expense): ").strip() or None  # 거래 타입 조건을 받는다.
-                q_memo = input("메모 검색어: ").strip() or None  # 메모 검색어 조건을 받는다.
-                q_tag = input("포함 태그: ").strip() or None  # 포함 태그 조건을 받는다.
+                raw_from = prompt_optional_valid("시작 날짜(YYYY-MM-DD): ", validate_optional_date)  # 시작 날짜를 별도 검증기로 받는다.
+                q_date_from = str(raw_from) if raw_from is not None else None  # 문자열 또는 None으로 정제한다.
+
+                def _validate_optional_date_to(value: str) -> Optional[str]:  # 종료 날짜 유효성과 시작일 비교를 함께 검사한다.
+                    checked = validate_optional_date(value)  # 종료 날짜를 전용 검증기로 검사한다.
+                    validate_date_range(q_date_from, checked)  # 시작 날짜와 종료 날짜 순서를 검사한다.
+                    return checked  # 검증을 통과한 종료 날짜를 돌려준다.
+
+                raw_to = prompt_optional_valid("종료 날짜(YYYY-MM-DD): ", _validate_optional_date_to)  # 종료 날짜를 검사하며 받는다.
+                q_date_to = str(raw_to) if raw_to is not None else None  # 문자열 또는 None으로 정제한다.
+                raw_cat = prompt_optional_valid("카테고리: ", validate_optional_category_name)  # 카테고리를 전용 검증기로 검사하며 받는다.
+                q_category = str(raw_cat) if raw_cat is not None else None  # 문자열 또는 None으로 정제한다.
+                raw_type = prompt_optional_valid("거래 타입(income/expense): ", validate_optional_transaction_type)  # 거래 타입을 전용 검증기로 검사하며 받는다.
+                q_type = str(raw_type) if raw_type is not None else None  # 문자열 또는 None으로 정제한다.
+
+                def _validate_memo(value: str) -> Optional[str]:  # 메모 검색어 공백 입력을 검사한다.
+                    return validate_optional_text(value, "메모 검색어")  # 공백 검증 함수를 호출한다.
+
+                def _validate_tag(value: str) -> Optional[str]:  # 태그 검색어 공백 입력을 검사한다.
+                    return validate_optional_text(value, "포함 태그")  # 공백 검증 함수를 호출한다.
+
+                raw_memo = prompt_optional_valid("메모 검색어: ", _validate_memo)  # 메모 검색어를 검사하며 받는다.
+                q_memo = str(raw_memo) if raw_memo is not None else None  # 문자열 또는 None으로 정제한다.
+                raw_tag = prompt_optional_valid("포함 태그: ", _validate_tag)  # 포함 태그를 검사하며 받는다.
+                q_tag = str(raw_tag) if raw_tag is not None else None  # 문자열 또는 None으로 정제한다.
                 found = False  # 검색 결과 여부 플래그를 준비한다.
                 for tx in service.search_transactions(date_from=q_date_from, date_to=q_date_to, category=q_category, transaction_type=q_type, query=q_memo, tag=q_tag):  # 검색 제너레이터를 순회한다.
                     found = True  # 검색 결과가 있음을 표시한다.

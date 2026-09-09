@@ -18,6 +18,17 @@ def prompt_until_valid(label: str, validator: Callable[[str], object]) -> object
             print_error(error.message, error.hint)  # 에러 원인과 올바른 입력 힌트를 화면에 출력한다.
 
 
+# 🔥 for search command
+def prompt_optional_valid(label: str, validator: Callable[[str], Optional[object]]) -> Optional[object]:  # 생략(엔터)을 허용하면서 올바른 값을 입력할 때까지 묻는다.
+    while True:  # 올바른 입력을 받거나 생략할 때까지 무한 반복한다.
+        raw = input(label)  # 사용자 입력을 공백 제거 없이 원본 그대로 받는다.
+        try:  # 입력한 글자가 규칙에 맞는지 검사를 시도한다.
+            return validator(raw)  # 검증 함수를 실행하여 통과한 값을 돌려주며 반복을 마친다.
+        except ValidationError as error:  # 규칙에 맞지 않거나 공백만 입력된 잘못된 입력인 경우다.
+            print_error(error.message, error.hint)  # 에러 원인과 올바른 입력 힌트를 화면에 출력한다.
+
+
+
 def prompt_registered_category(service: BudgetService) -> str:  # 등록된 카테고리를 먼저 안내하고 올바른 입력을 받을 때까지 묻는다.
     available = service.list_categories()  # 현재 가계부에 등록된 전체 카테고리 목록을 가져온다.
     print(f"[현재 등록된 카테고리: {', '.join(available)}]")  # 사용자가 참고할 수 있도록 카테고리 선택 전 전체 목록을 출력한다.

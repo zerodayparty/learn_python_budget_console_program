@@ -2,7 +2,7 @@
 
 import re                                           # re는 문자열 모양을 검사하는 Regular Expression(정규 표현식) 도구다.
 from datetime import datetime                       # datetime은 실제로 존재하는 날짜인지 검사하는 도구다.
-from typing import List                             # List는 여러 문자열을 담는 목록의 타입을 표시한다.
+from typing import List, Optional                             # List와 값이 없을 수도 있는 Optional 타입을 가져온다.
 from budget_app.constants import (  # 공통 상수 모듈에서 필요한 패턴과 포맷, 에러 메시지를 가져온다.
     ALLOWED_TYPES,  # 거래 타입 허용 목록('income', 'expense')을 가져온다.
     DATE_FORMAT,  # 날짜 형식 문자열('%Y-%m-%d')을 가져온다.
@@ -104,6 +104,47 @@ def normalize_tags(value: object) -> List[str]:  # 태그를 중복 없는 문�
             normalized.append(tag)          # 조건을 만족한 태그만 결과 목록에 추가한다.
     
     return normalized                       # 정리가 끝난 태그 목록을 돌려준다.
+
+
+
+# 🔥 for search command
+
+# ✅
+def validate_optional_date(value: str) -> Optional[str]:  # 빈 문자열(엔터)이면 None을 돌려주고, 공백이나 글자가 있으면 날짜를 검사한다.
+    if value == "":  # 아무것도 입력하지 않은 순수한 엔터인지 검사한다.
+        return None  # 조건 생략을 뜻하는 None을 돌려준다.
+    return validate_date(value)  # 스페이스만 있거나 다른 글자가 있으면 정식 날짜 검사로 넘겨 공백 에러나 형식 에러를 발생시킨다.
+
+
+# ✅
+def validate_optional_transaction_type(value: str) -> Optional[str]:  # 빈 문자열(엔터)이면 None을 돌려주고, 공백이나 글자가 있으면 타입을 검사한다.
+    if value == "":  # 아무것도 입력하지 않은 순수한 엔터인지 검사한다.
+        return None  # 조건 생략을 뜻하는 None을 돌려준다.
+    return validate_transaction_type(value)  # 스페이스나 글자가 있으면 정식 거래 타입 검사로 넘긴다.
+
+
+# ✅
+def validate_optional_category_name(value: str) -> Optional[str]:  # 빈 문자열(엔터)이면 None을 돌려주고, 공백이나 글자가 있으면 카테고리를 검사한다.
+    if value == "":  # 아무것도 입력하지 않은 순수한 엔터인지 검사한다.
+        return None  # 조건 생략을 뜻하는 None을 돌려준다.
+    return validate_category_name(value)  # 스페이스나 글자가 있으면 정식 카테고리 검사로 넘긴다.
+
+
+# ✅
+def validate_optional_text(value: str, field_name: str = "입력값") -> Optional[str]:  # 빈 문자열(엔터)이면 None을 돌려주고, 스페이스만 있으면 오류를 알린다.
+    if value == "":  # 아무것도 입력하지 않은 순수한 엔터인지 검사한다.
+        return None  # 조건 생략을 뜻하는 None을 돌려준다.
+    cleaned = value.strip()  # 앞뒤의 불필요한 공백을 제거한다.
+    if not cleaned:  # 스페이스만 입력하여 내용이 없는 경우다.
+        raise ValidationError(f"{field_name}에 공백만 입력할 수 없다.", "검색할 글자를 입력하거나 생략하려면 엔터만 누른다.")  # 공백 전용 오류를 알린다.
+    return cleaned  # 공백이 정리된 텍스트를 돌려준다.
+
+
+# ✅
+def validate_date_range(date_from: Optional[str], date_to: Optional[str]) -> None:  # 시작 날짜와 종료 날짜의 순서가 올바른지 검사한다.
+    if date_from and date_to and date_from > date_to:  # 두 날짜가 모두 있고 시작일이 종료일보다 늦은지 검사한다.
+        raise ValidationError(*ErrorMessages.DATE_RANGE_REVERSED)  # 날짜 순서 역전 오류를 발생시킨다.
+
 
 
 

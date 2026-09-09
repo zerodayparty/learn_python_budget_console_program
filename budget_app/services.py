@@ -1,7 +1,7 @@
 # 이 파일은 저장소 기능을 조합해서 가계부의 실제 업무 규칙을 처리한다.
 
 import csv  # csv는 Comma-Separated Values(쉼표로 구분한 값) 파일을 읽고 쓰는 도구다.
-import uuid  # uuid는 Universally Unique Identifier(범용 고유 식별자)를 만드는 도구다.
+import uuid  # 🔥 uuid는 Universally Unique Identifier(범용 고유 식별자)를 만드는 도구다.
 from pathlib import Path  # Path는 파일 경로를 안전하게 조합하고 다루는 도구다.
 from typing import Dict, Iterator, List, Optional, Tuple  # 함수가 주고받는 값의 자료형을 표시한다.
 
@@ -40,11 +40,16 @@ class BudgetService:  # 여러 저장소를 연결해 가계부 규칙을 실행
         self.categories = categories  # 카테고리 저장소를 서비스 안에 보관한다.
         self.budgets = budgets  # 예산 저장소를 서비스 안에 보관한다.
 
+    # ✅ 
     def _new_id(self) -> str:  # 다른 거래와 겹칠 가능성이 매우 낮은 새 id를 만든다.
         while True:  # 저장된 거래와 겹치지 않는 id가 만들어질 때까지 반복한다.
+
+            # UUID = Universally Unique Identifier(범용 고유 식별자)를 만드는 도구다.
+
             candidate = f"TX-{uuid.uuid4().hex[:12].upper()}"  # UUID 앞 12자에 TX 접두사를 붙여 읽기 쉬운 후보를 만든다.
             if self.transactions.find_by_id(candidate) is None:  # 후보 id가 기존 거래 파일에 없는지 확인한다.
                 return candidate  # 실제로 겹치지 않는 후보만 새 거래 id로 돌려준다.
+
 
     def _checked_category(self, category: str) -> str:  # 카테고리 이름과 등록 여부를 함께 검사한다.
         cleaned = validate_category_name(category)  # 이름이 비어 있거나 너무 길지 않은지 검사한다.

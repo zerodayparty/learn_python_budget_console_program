@@ -11,6 +11,13 @@ from budget_app.cli import main  # 실제 CLI(Command-Line Interface) 시작 함
 from budget_app.exceptions import ConflictError, NotFoundError, ValidationError  # 잘못된 작업이 알맞은 오류가 되는지 검사한다.
 from budget_app.repositories import BudgetStore, CategoryStore, TransactionRepository  # 세 파일이 실제로 만들어지고 저장되는지 검사한다.
 from budget_app.services import BudgetService  # CRUD, 검색, 요약, CSV 규칙을 실제로 실행한다.
+from budget_app.validators import (  # 새로 추가된 선택적 검증 함수들을 가져온다.
+    validate_date_range,  # 날짜 범위 검증 함수다.
+    validate_optional_category_name,  # 선택적 카테고리 검증 함수다.
+    validate_optional_date,  # 선택적 날짜 검증 함수다.
+    validate_optional_text,  # 선택적 텍스트 공백 검증 함수다.
+    validate_optional_transaction_type,  # 선택적 거래 타입 검증 함수다.
+)  # 검증 함수 가져오기를 마친다.
 
 
 class BudgetServiceTest(unittest.TestCase):  # 서비스와 파일 저장 기능을 검증하는 테스트 모음이다.
@@ -130,6 +137,30 @@ class BudgetServiceTest(unittest.TestCase):  # 서비스와 파일 저장 기능
         self.assertEqual(0, summary.total_expense)  # 총지출이 0인지 확인한다.
         self.assertEqual(500000, summary.budget)  # 거래가 없어도 저장한 예산을 조회하는지 확인한다.
         self.assertEqual(0.0, summary.budget_usage)  # 거래가 없으면 예산 사용률이 0%인지 확인한다.
+
+    def test_optional_validators_behavior(self) -> None:  # 별도 선택적 검증 함수들이 엔터는 허용하고 스페이스는 거부하는지 검증한다.
+        self.assertIsNone(validate_optional_date(""))  # 순수 엔터(빈 문자열)는 None으로 생략되는지 확인한다.
+        with self.assertRaises(ValidationError):  # 스페이스 입력 시 날짜 형식 오류가 나는지 확인한다.
+            validate_optional_date(" ")  # 스페이스 한 글자를 전달한다.
+        with self.assertRaises(ValidationError):  # 여러 스페이스 입력 시 오류가 나는지 확인한다.
+            validate_optional_date("   ")  # 공백 여러 개를 전달한다.
+        self.assertEqual("2026-08-01", validate_optional_date("2026-08-01"))  # 정상 날짜는 그대로 통과하는지 확인한다.
+        self.assertIsNone(validate_optional_transaction_type(""))  # 순수 엔터는 None으로 생략되는지 확인한다.
+        with self.assertRaises(ValidationError):  # 스페이스 입력 시 타입 오류가 나는지 확인한다.
+            validate_optional_transaction_type(" ")  # 스페이스 한 글자를 전달한다.
+        self.assertEqual("income", validate_optional_transaction_type("income"))  # 정상 타입은 그대로 통과하는지 확인한다.
+        self.assertIsNone(validate_optional_category_name(""))  # 순수 엔터는 None으로 생략되는지 확인한다.
+        with self.assertRaises(ValidationError):  # 스페이스 입력 시 빈 이름 오류가 나는지 확인한다.
+            validate_optional_category_name(" ")  # 스페이스 한 글자를 전달한다.
+        self.assertEqual("food", validate_optional_category_name("food"))  # 정상 이름은 그대로 통과하는지 확인한다.
+        self.assertIsNone(validate_optional_text(""))  # 순수 엔터는 None으로 생략되는지 확인한다.
+        with self.assertRaises(ValidationError):  # 스페이스 입력 시 공백 전용 오류가 나는지 확인한다.
+            validate_optional_text(" ", "검색어")  # 스페이스 한 글자를 전달한다.
+        self.assertEqual("식사", validate_optional_text(" 식사 "))  # 공백이 있는 글자는 strip되어 통과하는지 확인한다.
+        with self.assertRaises(ValidationError):  # 날짜 순서가 역전되었을 때 오류가 나는지 확인한다.
+            validate_date_range("2026-08-10", "2026-08-01")  # 시작일이 더 늦은 날짜를 전달한다.
+        validate_date_range("2026-08-01", "2026-08-10")  # 정상 날짜 순서는 예외 없이 통과하는지 확인한다.
+        validate_date_range(None, "2026-08-10")  # 한쪽만 있어도 정상 통과하는지 확인한다.
 
 
 class BudgetCliTest(unittest.TestCase):  # 실제 명령어 해석, 대화형 입력, 종료 코드를 검증하는 테스트 모음이다.
@@ -327,6 +358,69 @@ class BudgetCliTest(unittest.TestCase):  # 실제 명령어 해석, 대화형 �
         self.assertIn("[저장 완료] 2026-10 예산 600000원", printed)  # 예산 저장 완료 출력을 검증한다.
         self.assertIn("2026-10: 예산 600000원", printed)  # 예산 조회 결과 출력을 검증한다.
         self.assertIn("<작업 선택>\n 1. 가져오기(import)\n 2. 내보내기(export)", printed)  # CSV 서브 메뉴 형식 출력을 검증한다.
+
+
+    def test_interactive_search_validation_and_optional_fields(self) -> None:  # 대화형 조건 검색의 실시간 검증과 생략 기능을 검증한다.
+        service = BudgetService(TransactionRepository(self.data_dir), CategoryStore(self.data_dir), BudgetStore(self.data_dir))  # CLI 테스트 폴더에 서비스를 조립한다.
+        service.add_transaction("2026-08-10", "expense", "food", 15000, "점심식사", "meal")  # 테스트용 거래를 1건 추가한다.
+        console_inputs = [  # 대화형 콘솔에서 조건 검색을 수행할 입력 목록이다.
+            "3",  # 메인 메뉴에서 3번(조건별 거래 검색)을 선택한다.
+            "2026-99-99",  # 잘못된 시작 날짜를 입력하여 에러를 유발한다.
+            "2026-08-01",  # 올바른 시작 날짜를 다시 입력한다.
+            "2026-07-01",  # 시작 날짜보다 앞선 종료 날짜를 넣어 에러를 유발한다.
+            "",  # 종료 날짜는 엔터를 눌러 생략(None)한다.
+            "",  # 카테고리는 엔터를 눌러 생략(None)한다.
+            "invalid_type",  # 잘못된 거래 타입을 입력하여 에러를 유발한다.
+            "expense",  # 올바른 거래 타입을 다시 입력한다.
+            "",  # 메모 검색어는 엔터를 눌러 생략(None)한다.
+            "",  # 포함 태그는 엔터를 눌러 생략(None)한다.
+            "3",  # 두 번째 검색을 위해 다시 3번을 선택한다.
+            "",  # 시작 날짜 생략
+            "",  # 종료 날짜 생략
+            "transport",  # 내역에 없는 카테고리를 입력한다.
+            "",  # 거래 타입 생략
+            "",  # 메모 검색어 생략
+            "",  # 태그 생략
+            "q",  # 프로그램을 정상 종료한다.
+        ]  # 입력 시나리오 구성을 마친다.
+        interactive_out = io.StringIO()  # 출력 내용을 가로챌 메모리 스트림을 생성한다.
+        with patch("builtins.input", side_effect=console_inputs), patch("sys.stdout", interactive_out):  # 키보드와 화면 출력을 가로챈다.
+            exit_code = main(["--data-dir", str(self.data_dir)])  # 대화형 콘솔 메인 함수를 실행한다.
+        self.assertEqual(0, exit_code)  # 정상 종료 코드 0인지 검증한다.
+        printed = interactive_out.getvalue()  # 콘솔에 출력된 전체 문자열을 가져온다.
+        self.assertIn("달력에 존재하지 않는 날짜다.", printed)  # 잘못된 시작 날짜 입력 시 에러가 떴는지 확인한다.
+        self.assertIn("시작 날짜가 종료 날짜보다 늦다.", printed)  # 시작 날짜 역전 시 에러가 떴는지 확인한다.
+        self.assertIn("거래 타입이 올바르지 않다.", printed)  # 잘못된 타입 입력 시 에러가 떴는지 확인한다.
+        self.assertIn("expense | food | 15000 | 점심식사 | meal", printed)  # 첫 번째 검색 결과가 정상 출력되었는지 확인한다.
+        self.assertIn("❌ ⚠️ 검색 결과 없음", printed)  # 두 번째 검색에서 결과 없음 메시지가 출력되었는지 확인한다.
+
+    def test_interactive_search_rejects_space_inputs(self) -> None:  # 대화형 조건 검색에서 스페이스만 입력했을 때 통과되지 않고 오류가 나는지 검증한다.
+        console_inputs = [  # 대화형 콘솔에서 스페이스를 차례대로 입력할 시나리오다.
+            "3",  # 메인 메뉴에서 3번(조건별 거래 검색)을 선택한다.
+            " ",  # 시작 날짜에 스페이스를 입력하여 에러를 유발한다.
+            "",  # 올바른 생략을 위해 엔터를 친다.
+            "   ",  # 종료 날짜에 스페이스 여러 개를 입력하여 에러를 유발한다.
+            "",  # 올바른 생략을 위해 엔터를 친다.
+            " ",  # 카테고리에 스페이스를 입력하여 에러를 유발한다.
+            "",  # 올바른 생략을 위해 엔터를 친다.
+            " ",  # 거래 타입에 스페이스를 입력하여 에러를 유발한다.
+            "",  # 올바른 생략을 위해 엔터를 친다.
+            " ",  # 메모 검색어에 스페이스를 입력하여 에러를 유발한다.
+            "",  # 올바른 생략을 위해 엔터를 친다.
+            " ",  # 포함 태그에 스페이스를 입력하여 에러를 유발한다.
+            "",  # 올바른 생략을 위해 엔터를 친다.
+            "q",  # 프로그램을 정상 종료한다.
+        ]  # 입력 시나리오 구성을 마친다.
+        interactive_out = io.StringIO()  # 출력 내용을 가로챌 메모리 스트림을 생성한다.
+        with patch("builtins.input", side_effect=console_inputs), patch("sys.stdout", interactive_out):  # 키보드와 화면을 대체한다.
+            exit_code = main(["--data-dir", str(self.data_dir)])  # 메인 함수를 실행한다.
+        self.assertEqual(0, exit_code)  # 정상 종료 코드 0인지 검증한다.
+        printed = interactive_out.getvalue()  # 출력된 전체 문자열을 가져온다.
+        self.assertIn("날짜 형식이 올바르지 않다.", printed)  # 시작 날짜 스페이스 에러를 확인한다.
+        self.assertIn("카테고리 이름이 비어 있다.", printed)  # 카테고리 스페이스 에러를 확인한다.
+        self.assertIn("거래 타입이 올바르지 않다.", printed)  # 거래 타입 스페이스 에러를 확인한다.
+        self.assertIn("메모 검색어에 공백만 입력할 수 없다.", printed)  # 메모 스페이스 에러를 확인한다.
+        self.assertIn("포함 태그에 공백만 입력할 수 없다.", printed)  # 태그 스페이스 에러를 확인한다.
 
 
 if __name__ == "__main__":  # 이 테스트 파일을 직접 실행했는지 확인한다.
