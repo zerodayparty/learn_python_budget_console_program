@@ -5,16 +5,14 @@ import uuid  # 🔥 uuid는 Universally Unique Identifier(범용 고유 식별�
 from pathlib import Path  # Path는 파일 경로를 안전하게 조합하고 다루는 도구다.
 from typing import Dict, Iterator, List, Optional, Tuple  # 함수가 주고받는 값의 자료형을 표시한다.
 
+from budget_app.dtos import CreateTransactionDTO, SearchTransactionsDTO, UpdateTransactionDTO  # CLI에서 받은 거래 입력을 묶고 검증한 DTO들을 가져온다.
 from budget_app.exceptions import BudgetAppError, ConflictError, NotFoundError, ValidationError  # 업무 규칙 위반을 설명할 오류들이다.
 from budget_app.models import MonthlySummary, Transaction  # 업무에서 사용할 거래와 요약 데이터 모양이다.
 from budget_app.repositories import BudgetStore, CategoryStore, TransactionRepository  # 세 JSONL 파일을 담당하는 저장소들이다.
-from budget_app.validators import (  # 입력값을 종류별로 검사하는 함수들을 가져온다.
-    normalize_tags,  # 쉼표로 입력한 태그를 목록으로 정리한다.
-    validate_amount,  # 금액이 0보다 큰 정수인지 검사한다.
+from budget_app.validators import (  # DTO 대상이 아닌 나머지 입력값 검사 함수들을 가져온다.
     validate_category_name,  # 카테고리 이름이 저장 가능한지 검사한다.
     validate_date,  # 날짜가 YYYY-MM-DD 형식의 실제 날짜인지 검사한다.
     validate_month,  # 월이 YYYY-MM 형식의 실제 월인지 검사한다.
-    validate_transaction_type,  # 거래 타입이 income 또는 expense인지 검사한다.
 )  # 입력값 검사 함수 가져오기를 끝낸다.
 from budget_app.constants import (  # 공통 상수 모듈에서 CSV 열 규칙과 에러 메시지를 가져온다.
     CSV_COLUMNS,  # CSV 내보내기/가져오기 열 순서다.
@@ -27,6 +25,17 @@ def _category_expense_sort_key(item: Tuple[str, int]) -> Tuple[int, str]:  # 카
     category = item[0]  # 첫 번째 값인 카테고리 이름을 꺼낸다.
     amount = item[1]  # 두 번째 값인 카테고리 지출 합계를 꺼낸다.
     return -amount, category  # 금액은 큰 순서, 같은 금액은 이름 순서가 되도록 기준을 돌려준다.
+
+
+def _matches_search(transaction: Transaction, criteria: SearchTransactionsDTO) -> bool:  # 거래 한 건이 모든 검색 조건과 일치하는지 계산한다.
+    return (  # 모든 조건을 동시에 만족할 때만 참을 돌려준다.
+        (criteria.date_from is None or transaction.date >= criteria.date_from)  # 시작 날짜가 없거나 거래 날짜가 시작 날짜 이후인지 확인한다.
+        and (criteria.date_to is None or transaction.date <= criteria.date_to)  # 종료 날짜가 없거나 거래 날짜가 종료 날짜 이전인지 확인한다.
+        and (criteria.category is None or transaction.category == criteria.category)  # 카테고리가 없거나 같은 카테고리인지 확인한다.
+        and (criteria.transaction_type is None or transaction.type == criteria.transaction_type)  # 타입이 없거나 같은 타입인지 확인한다.
+        and (criteria.query is None or criteria.query.lower() in transaction.memo.lower())  # 검색어가 없거나 메모에 포함되는지 확인한다.
+        and (criteria.tag is None or criteria.tag in transaction.tags)  # 태그가 없거나 거래 태그 목록에 포함되는지 확인한다.
+    )  # 검색 조건 비교를 끝낸다.
 
 
 class BudgetService:  # 여러 저장소를 연결해 가계부 규칙을 실행하는 서비스 클래스다.
@@ -51,35 +60,20 @@ class BudgetService:  # 여러 저장소를 연결해 가계부 규칙을 실행
                 return candidate  # 실제로 겹치지 않는 후보만 새 거래 id로 돌려준다.
 
 
-    def _checked_category(self, category: str) -> str:  # 카테고리 이름과 등록 여부를 함께 검사한다.
-        cleaned = validate_category_name(category)  # 이름이 비어 있거나 너무 길지 않은지 검사한다.
-        if not self.categories.exists(cleaned):  # 검사한 이름이 카테고리 파일에 등록되어 있는지 확인한다.
-            raise ValidationError(*ErrorMessages.unregistered_category(cleaned))  # 등록되지 않은 카테고리 오류를 발생시킨다.
-        return cleaned  # 검사와 등록 확인을 끝낸 이름을 돌려준다.
+    def _require_registered_category(self, category: str) -> None:  # 카테고리가 실제 등록 목록에 있는지 업무 규칙을 검사한다.
+        if not self.categories.exists(category):  # DTO가 형식을 검사한 이름이 카테고리 파일에 등록되어 있는지 확인한다.
+            raise ValidationError(*ErrorMessages.unregistered_category(category))  # 등록되지 않은 카테고리 오류를 발생시킨다.
 
-    def add_transaction(  # 사용자 입력으로 거래 한 건을 검사하고 저장한다.
-        self,  # 현재 서비스 객체 자신을 뜻한다.
-        date: str,  # YYYY-MM-DD 형식으로 받을 거래 날짜다.
-        transaction_type: str,  # income 또는 expense로 받을 거래 타입이다.
-        category: str,  # 등록된 이름으로 받을 카테고리다.
-        amount: object,  # 0보다 큰 정수로 바꿀 수 있는 금액이다.
-        memo: str = "",  # 선택 입력 메모이며 기본값은 빈 문자열이다.
-        tags: Optional[object] = None,  # 선택 입력 태그 목록 또는 쉼표 문자열이다.
-    ) -> Transaction:  # 검사와 저장을 끝낸 거래 객체를 돌려준다.
-        checked_date = validate_date(date)  # 거래 날짜가 실제 달력에 존재하는지 검사한다.
-        checked_type = validate_transaction_type(transaction_type)  # 수입 또는 지출인지 검사한다.
-        checked_category = self._checked_category(category)  # 카테고리가 등록되어 있는지 검사한다.
-        checked_amount = validate_amount(amount)  # 금액이 0보다 큰 정수인지 검사한다.
-        normalized_memo = memo.strip()  # 메모 앞뒤의 불필요한 공백을 제거한다.
-        normalized_tags = normalize_tags(tags)  # 태그를 중복 없는 문자열 목록으로 정리한다.
-        transaction = Transaction(  # 검사를 통과한 값으로 새 거래 객체를 만든다.
+    def add_transaction(self, request: CreateTransactionDTO) -> Transaction:  # DTO 한 개를 받아 거래를 저장한다.
+        self._require_registered_category(request.category)  # 등록된 카테고리만 거래에 사용할 수 있다는 업무 규칙을 검사한다.
+        transaction = Transaction(  # DTO의 검증된 값으로 새 거래 객체를 만든다.
             id=self._new_id(),  # 겹치지 않는 새 거래 id를 발급한다.
-            date=checked_date,  # 검증된 날짜를 저장한다.
-            type=checked_type,  # 검증된 거래 타입을 저장한다.
-            category=checked_category,  # 검증된 카테고리를 저장한다.
-            amount=checked_amount,  # 검증된 금액을 저장한다.
-            memo=normalized_memo,  # 정리된 메모를 저장한다.
-            tags=normalized_tags,  # 정리된 태그 목록을 저장한다.
+            date=request.date,  # DTO가 검증한 날짜를 저장한다.
+            type=request.transaction_type,  # DTO가 검증한 거래 타입을 저장한다.
+            category=request.category,  # DTO가 검증한 카테고리를 저장한다.
+            amount=request.amount,  # DTO가 정수로 바꾼 금액을 저장한다.
+            memo=request.memo,  # DTO가 정리한 메모를 저장한다.
+            tags=list(request.tags or ()),  # DTO가 고정한 태그 튜플을 거래 모델용 목록으로 바꿔 저장한다.
         )  # 거래 객체 만들기를 끝낸다.
         self.transactions.append(transaction)  # 검사에 성공한 거래를 transactions.jsonl 마지막에 추가한다.
         return transaction  # 화면 출력이나 테스트에 쓸 수 있도록 저장한 거래를 돌려준다.
@@ -92,99 +86,27 @@ class BudgetService:  # 여러 저장소를 연결해 가계부 규칙을 실행
                 break  # 더 이상 파일을 읽지 않고 반복을 끝낸다.
             yield transaction  # 현재 거래 한 건만 호출한 쪽에 전달한다.
 
-    def search_transactions(  # 여러 조건에 맞는 거래를 최신순으로 한 건씩 찾는다.
-        self,  # 현재 서비스 객체 자신을 뜻한다.
-        date_from: Optional[str] = None,  # 시작 날짜이며 생략할 수 있다.
-        date_to: Optional[str] = None,  # 종료 날짜이며 생략할 수 있다.
-        category: Optional[str] = None,  # 카테고리 조건이며 생략할 수 있다.
-        transaction_type: Optional[str] = None,  # 거래 타입 조건이며 생략할 수 있다.
-        query: Optional[str] = None,  # 메모에 포함될 검색어이며 생략할 수 있다.
-        tag: Optional[str] = None,  # 반드시 포함할 태그이며 생략할 수 있다.
-    ) -> Iterator[Transaction]:  # 조건을 만족한 거래를 제너레이터로 전달한다.
-        checked_from: Optional[str] = None  # 검사된 시작 날짜가 없다는 상태로 시작한다.
-        if date_from is not None:  # 사용자가 시작 날짜를 입력했는지 확인한다.
-            checked_from = validate_date(date_from)  # 입력한 시작 날짜를 검사해서 저장한다.
-        checked_to: Optional[str] = None  # 검사된 종료 날짜가 없다는 상태로 시작한다.
-        if date_to is not None:  # 사용자가 종료 날짜를 입력했는지 확인한다.
-            checked_to = validate_date(date_to)  # 입력한 종료 날짜를 검사해서 저장한다.
-        checked_category: Optional[str] = None  # 검사된 카테고리 조건이 없다는 상태로 시작한다.
-        if category is not None:  # 사용자가 카테고리 조건을 입력했는지 확인한다.
-            checked_category = validate_category_name(category)  # 입력한 카테고리 이름을 검사해서 저장한다.
-        checked_type: Optional[str] = None  # 검사된 거래 타입 조건이 없다는 상태로 시작한다.
-        if transaction_type is not None:  # 사용자가 거래 타입 조건을 입력했는지 확인한다.
-            checked_type = validate_transaction_type(transaction_type)  # 입력한 거래 타입을 검사해서 저장한다.
-        checked_query: Optional[str] = None  # 검사된 메모 검색어가 없다는 상태로 시작한다.
-        if query is not None:  # 사용자가 메모 검색어를 입력했는지 확인한다.
-            checked_query = query.strip().lower()  # 앞뒤 공백을 지우고 소문자로 바꿔 저장한다.
-        checked_tag: Optional[str] = None  # 검사된 태그 조건이 없다는 상태로 시작한다.
-        if tag is not None:  # 사용자가 태그 조건을 입력했는지 확인한다.
-            checked_tag = tag.strip()  # 태그 앞뒤 공백을 제거해서 저장한다.
-        if checked_from and checked_to and checked_from > checked_to:  # 시작 날짜가 종료 날짜보다 뒤인지 검사한다.
-            raise ValidationError(*ErrorMessages.DATE_RANGE_REVERSED)  # 날짜 순서 역전 오류를 알린다.
+    def search_transactions(self, criteria: SearchTransactionsDTO) -> Iterator[Transaction]:  # 검색 DTO 한 개로 최신순 거래를 찾는다.
         for transaction in self.transactions.iter_latest():  # 최신 거래부터 파일을 한 건씩 읽는다.
-            if checked_from and transaction.date < checked_from:  # 거래가 시작 날짜보다 이전인지 검사한다.
-                continue  # 조건에 맞지 않으므로 다음 거래로 넘어간다.
-            if checked_to and transaction.date > checked_to:  # 거래가 종료 날짜보다 이후인지 검사한다.
-                continue  # 조건에 맞지 않으므로 다음 거래로 넘어간다.
-            if checked_category and transaction.category != checked_category:  # 카테고리가 다른지 검사한다.
-                continue  # 조건에 맞지 않으므로 다음 거래로 넘어간다.
-            if checked_type and transaction.type != checked_type:  # 거래 타입이 다른지 검사한다.
-                continue  # 조건에 맞지 않으므로 다음 거래로 넘어간다.
-            if checked_query and checked_query not in transaction.memo.lower():  # 메모에 검색어가 없는지 검사한다.
-                continue  # 조건에 맞지 않으므로 다음 거래로 넘어간다.
-            if checked_tag and checked_tag not in transaction.tags:  # 거래 태그 목록에 찾는 태그가 없는지 검사한다.
-                continue  # 조건에 맞지 않으므로 다음 거래로 넘어간다.
-            yield transaction  # 모든 조건을 만족한 거래 한 건을 전달한다.
+            if _matches_search(transaction, criteria):  # 현재 거래가 DTO의 모든 검색 조건과 일치하는지 확인한다.
+                yield transaction  # 모든 조건을 만족한 거래 한 건만 전달한다.
 
-    def update_transaction(  # id로 찾은 거래의 전달된 필드만 수정한다.
-        self,  # 현재 서비스 객체 자신을 뜻한다.
-        transaction_id: str,  # 수정할 거래의 유일한 id다.
-        date: Optional[str] = None,  # 새 날짜이며 생략하면 기존 값을 유지한다.
-        transaction_type: Optional[str] = None,  # 새 타입이며 생략하면 기존 값을 유지한다.
-        category: Optional[str] = None,  # 새 카테고리이며 생략하면 기존 값을 유지한다.
-        amount: Optional[object] = None,  # 새 금액이며 생략하면 기존 값을 유지한다.
-        memo: Optional[str] = None,  # 새 메모이며 생략하면 기존 값을 유지하고 빈 문자열이면 지운다.
-        tags: Optional[object] = None,  # 새 태그이며 생략하면 기존 값을 유지하고 빈 문자열이면 지운다.
-    ) -> Transaction:  # 수정과 저장을 마친 거래를 돌려준다.
-        no_changes = (  # 수정 옵션이 하나도 없는지 단계별 조건으로 계산한다.
-            date is None  # 새 날짜가 입력되지 않았는지 확인한다.
-            and transaction_type is None  # 새 거래 타입이 입력되지 않았는지 확인한다.
-            and category is None  # 새 카테고리가 입력되지 않았는지 확인한다.
-            and amount is None  # 새 금액이 입력되지 않았는지 확인한다.
-            and memo is None  # 새 메모가 입력되지 않았는지 확인한다.
-            and tags is None  # 새 태그가 입력되지 않았는지 확인한다.
-        )  # 모든 수정 옵션 확인을 끝낸다.
-        if no_changes:  # 수정할 값이 하나도 없는지 확인한다.
+    def update_transaction(self, request: UpdateTransactionDTO) -> Transaction:  # 수정 DTO 한 개를 받아 거래를 바꾼다.
+        if not request.has_changes:  # DTO 안에 수정할 값이 하나도 없는지 확인한다.
             raise ValidationError(*ErrorMessages.NO_FIELDS_TO_UPDATE)  # 수정 항목 없음 오류를 발생시킨다.
-        existing = self.transactions.find_by_id(transaction_id)  # id가 같은 기존 거래를 찾는다.
+        existing = self.transactions.find_by_id(request.transaction_id)  # DTO의 id와 같은 기존 거래를 찾는다.
         if existing is None:  # 수정할 거래가 존재하지 않는지 검사한다.
-            raise NotFoundError(*ErrorMessages.transaction_not_found(transaction_id))  # 거래 없음 오류를 발생시킨다.
-        new_type = existing.type  # 새 거래 타입의 기본값으로 기존 타입을 저장한다.
-        if transaction_type is not None:  # 새 거래 타입이 입력되었는지 확인한다.
-            new_type = validate_transaction_type(transaction_type)  # 새 거래 타입을 검사해서 교체한다.
-        new_date = existing.date  # 새 날짜의 기본값으로 기존 날짜를 저장한다.
-        if date is not None:  # 새 날짜가 입력되었는지 확인한다.
-            new_date = validate_date(date)  # 새 날짜를 검사해서 교체한다.
-        new_amount = existing.amount  # 새 금액의 기본값으로 기존 금액을 저장한다.
-        if amount is not None:  # 새 금액이 입력되었는지 확인한다.
-            new_amount = validate_amount(amount)  # 새 금액을 검사해서 교체한다.
-        new_category = existing.category  # 새 카테고리의 기본값으로 기존 카테고리를 저장한다.
-        if category is not None:  # 새 카테고리가 입력되었는지 확인한다.
-            new_category = self._checked_category(category)  # 새 카테고리 이름과 등록 여부를 검사해서 교체한다.
-        new_memo = existing.memo  # 새 메모의 기본값으로 기존 메모를 저장한다.
-        if memo is not None:  # 새 메모가 입력되었는지 확인한다.
-            new_memo = str(memo).strip()  # 새 메모의 앞뒤 공백을 제거해서 교체한다.
-        new_tags = list(existing.tags)  # 새 태그의 기본값으로 기존 태그 목록을 복사한다.
-        if tags is not None:  # 새 태그가 입력되었는지 확인한다.
-            new_tags = normalize_tags(tags)  # 새 태그를 정리해서 교체한다.
+            raise NotFoundError(*ErrorMessages.transaction_not_found(request.transaction_id))  # 거래 없음 오류를 발생시킨다.
+        if request.category is not None:  # 카테고리를 실제로 바꾸려는 요청인지 확인한다.
+            self._require_registered_category(request.category)  # 새 카테고리도 등록 목록에 있어야 한다는 업무 규칙을 검사한다.
         replacement = Transaction(  # 변경된 값과 유지할 값을 합쳐 새 거래 객체를 만든다.
             id=existing.id,  # 거래 id는 수정하지 않고 그대로 유지한다.
-            type=new_type,  # 위에서 결정한 거래 타입을 저장한다.
-            date=new_date,  # 위에서 결정한 날짜를 저장한다.
-            amount=new_amount,  # 위에서 결정한 금액을 저장한다.
-            category=new_category,  # 위에서 결정한 카테고리를 저장한다.
-            memo=new_memo,  # 위에서 결정한 메모를 저장한다.
-            tags=new_tags,  # 위에서 결정한 태그 목록을 저장한다.
+            type=request.transaction_type if request.transaction_type is not None else existing.type,  # 새 타입이 있으면 바꾸고 없으면 유지한다.
+            date=request.date if request.date is not None else existing.date,  # 새 날짜가 있으면 바꾸고 없으면 유지한다.
+            amount=request.amount if request.amount is not None else existing.amount,  # 새 금액이 있으면 바꾸고 없으면 유지한다.
+            category=request.category if request.category is not None else existing.category,  # 새 카테고리가 있으면 바꾸고 없으면 유지한다.
+            memo=request.memo if request.memo is not None else existing.memo,  # 새 메모가 있으면 바꾸고 없으면 유지한다.
+            tags=list(request.tags) if request.tags is not None else list(existing.tags),  # 새 태그 튜플이 있으면 목록으로 바꾸고 없으면 기존 목록을 복사한다.
         )  # 교체할 거래 객체 만들기를 끝낸다.
         self.transactions.replace(replacement)  # 임시 파일과 원자적 교체 방식으로 기존 거래를 수정한다.
         return replacement  # 화면 출력이나 테스트에 쓸 수 있도록 수정한 거래를 돌려준다.
@@ -276,14 +198,15 @@ class BudgetService:  # 여러 저장소를 연결해 가계부 규칙을 실행
         
             for line_number, row in enumerate(reader, start=2):  # 헤더 다음인 2번 줄부터 번호를 붙여 한 건씩 읽는다.
                 try:  # 현재 CSV 줄의 검사와 저장을 시도한다.
-                    self.add_transaction(  # 기존 add 규칙을 재사용해서 CSV 거래 한 건을 저장한다.
-                        date=row.get("date") or "",  # date 열이 없거나 비었으면 검증에서 잡도록 빈 문자열을 전달한다.
+                    request = CreateTransactionDTO(  # CSV 한 줄을 거래 추가 DTO 한 상자로 묶는다.
+                        date=row.get("date") or "",  # date 열이 없거나 비었으면 DTO 검증에서 잡도록 빈 문자열을 전달한다.
                         transaction_type=row.get("type") or "",  # type 열이 없거나 비었으면 빈 문자열을 전달한다.
                         category=row.get("category") or "",  # category 열이 없거나 비었으면 빈 문자열을 전달한다.
                         amount=row.get("amount") or "",  # amount 열이 없거나 비었으면 빈 문자열을 전달한다.
                         memo=row.get("memo") or "",  # 선택 메모가 없으면 빈 문자열을 전달한다.
                         tags=row.get("tags") or "",  # 선택 태그가 없으면 빈 문자열을 전달한다.
-                    )  # CSV 거래 한 건 저장을 끝낸다.
+                    )  # CSV 거래 추가 DTO 만들기를 끝낸다.
+                    self.add_transaction(request)  # 기존 DTO 기반 추가 규칙을 재사용해서 CSV 거래 한 건을 저장한다.
                     imported += 1  # 정상 저장 개수에 1을 더한다.
                 except BudgetAppError as error:  # 현재 줄의 예상 가능한 입력 오류를 잡는다.
                     skipped += 1  # 건너뛴 개수에 1을 더한다.

@@ -30,6 +30,7 @@ from budget_app.constants import (  # 공통 상수 모듈에서 기본 폴더�
     DEFAULT_DATA_DIR,  # 기본 데이터 저장 폴더 이름이다.
     ErrorMessages,  # 오류 메시지 및 해결 힌트 모음 클래스를 가져온다.
 )  # 상수 가져오기를 끝낸다.
+from budget_app.dtos import CreateTransactionDTO, SearchTransactionsDTO, UpdateTransactionDTO  # CLI 입력을 서비스에 전달할 DTO들을 가져온다.
 from budget_app.exceptions import ConflictError, NotFoundError, ValidationError  # 대화형 입력에서 오류를 보여 주고 다시 받을 때 사용한다.
 from budget_app.models import MonthlySummary, Transaction  # 거래와 요약을 화면 형식으로 출력하기 위해 가져온다.
 from budget_app.repositories import BudgetStore, CategoryStore, TransactionRepository  # 세 저장 파일을 준비할 저장소다.
@@ -63,7 +64,8 @@ def execute(args: argparse.Namespace) -> int:  # argparse가 해석한 명령 �
         amount = _prompt_until_valid("금액(양의 정수): ", validate_amount)  # 0보다 큰 금액을 받을 때까지 묻는다.
         memo = input("메모(선택): ")  # 메모는 선택 사항이므로 그대로 받는다.
         tags = input("태그(쉼표로 구분, 선택): ")  # 태그 문자열도 그대로 받는다.
-        created = service.add_transaction(date, transaction_type, category, amount, memo, tags)  # 거래를 서비스에 저장한다.
+        request = CreateTransactionDTO(date, transaction_type, category, amount, memo, tags)  # 여섯 입력값을 검증된 거래 추가 DTO 한 개로 묶는다.
+        created = service.add_transaction(request)  # 거래 추가 DTO를 서비스에 전달해 저장한다.
         print(f"[저장 완료] id={created.id}")  # 생성된 거래 id를 사용자에게 보여 준다.
         return 0  # 성공 종료 코드를 돌려준다.
 
@@ -78,14 +80,15 @@ def execute(args: argparse.Namespace) -> int:  # argparse가 해석한 명령 �
 
     if args.command == "search":  # 사용자가 search 명령을 선택했는지 확인한다.
         found = False  # 검색 결과가 한 건이라도 있었는지 기억할 표시를 준비한다.
-        for transaction in service.search_transactions(  # 모든 검색 조건을 서비스에 넘기고 제너레이터로 결과를 받는다.
+        criteria = SearchTransactionsDTO(  # 여러 검색 조건을 검증된 DTO 한 개로 묶는다.
             date_from=args.date_from,  # 시작 날짜 조건을 전달한다.
             date_to=args.date_to,  # 종료 날짜 조건을 전달한다.
             category=args.category,  # 카테고리 조건을 전달한다.
             transaction_type=args.transaction_type,  # 거래 타입 조건을 전달한다.
             query=args.query,  # 메모 검색어를 전달한다.
             tag=args.tag,  # 포함 태그를 전달한다.
-        ):  # 결과를 한 건씩 순회한다.
+        )  # 검색 DTO 만들기를 끝낸다.
+        for transaction in service.search_transactions(criteria):  # DTO 조건과 맞는 검색 결과를 한 건씩 순회한다.
             found = True  # 적어도 한 건을 찾았다고 표시한다.
             _print_transaction(transaction)  # 찾은 거래를 요구사항 형식으로 출력한다.
         if not found:  # 조건을 만족하는 거래가 없었는지 확인한다.
@@ -151,7 +154,7 @@ def execute(args: argparse.Namespace) -> int:  # argparse가 해석한 명령 �
             if not args.id:  # 명령줄 옵션 방식에서는 거래 id가 필수다.
                                                 # 🔥 파이썬 * (언패킹 연산자) = 튜플로 받은 것을 언패킹하여 ValidationError로 전달한다.
                 raise ValidationError(*ErrorMessages.TRANSACTION_ID_REQUIRED)  # id 누락 오류를 알린다.
-            updated = service.update_transaction(  # 전달받은 옵션만 골라 거래를 수정한다.
+            request = UpdateTransactionDTO(  # 전달받은 수정 옵션을 DTO 한 개로 묶고 입력값을 검사한다.
                 transaction_id=args.id,  # 대상 거래 id를 전달한다.
                 date=args.date,  # 새 날짜를 전달한다.
                 transaction_type=args.transaction_type,  # 새 타입을 전달한다.
@@ -159,7 +162,8 @@ def execute(args: argparse.Namespace) -> int:  # argparse가 해석한 명령 �
                 amount=args.amount,  # 새 금액을 전달한다.
                 memo=args.memo,  # 새 메모를 전달한다.
                 tags=args.tags,  # 새 태그를 전달한다.
-            )  # 수정 실행 결과를 받는다.
+            )  # 거래 수정 DTO 만들기를 끝낸다.
+            updated = service.update_transaction(request)  # 거래 수정 DTO를 서비스에 전달해 수정한다.
         else:  # 수정할 필드 옵션을 생략해서 대화형 수정을 원하는 경우다.
             updated = _prompt_update_interactive(service, transaction_id=args.id)  # 대화형으로 필드를 묻고 수정한다.
         print(f"[수정 완료] id={updated.id}")  # 수정된 거래 id를 알린다.

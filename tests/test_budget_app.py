@@ -8,6 +8,7 @@ from pathlib import Path  # Path는 테스트 파일과 폴더 경로를 다루�
 from unittest.mock import patch  # patch는 input과 print 출력을 테스트 동안만 바꾸는 도구다.
 
 from budget_app.cli import main  # 실제 CLI(Command-Line Interface) 시작 함수를 검증하기 위해 가져온다.
+from budget_app.dtos import CreateTransactionDTO, SearchTransactionsDTO, UpdateTransactionDTO  # 서비스에 전달할 거래 DTO들을 검증하기 위해 가져온다.
 from budget_app.exceptions import ConflictError, NotFoundError, ValidationError  # 잘못된 작업이 알맞은 오류가 되는지 검사한다.
 from budget_app.repositories import BudgetStore, CategoryStore, TransactionRepository  # 세 파일이 실제로 만들어지고 저장되는지 검사한다.
 from budget_app.services import BudgetService  # CRUD, 검색, 요약, CSV 규칙을 실제로 실행한다.
@@ -39,25 +40,39 @@ class BudgetServiceTest(unittest.TestCase):  # 서비스와 파일 저장 기능
         self.assertIn("food", self.service.list_categories())  # 첫 실행 기본 카테고리에 food가 있는지 확인한다.
         self.assertIn("salary", self.service.list_categories())  # 첫 실행 기본 카테고리에 salary가 있는지 확인한다.
 
+    def test_transaction_dtos_validate_normalize_and_group_input(self) -> None:  # DTO가 입력 검증과 여러 값 묶기를 담당하는지 검증한다.
+        create_request = CreateTransactionDTO(" 2026-08-01 ", " EXPENSE ", " food ", "12000", " 점심 ", "meal, meal, work")  # 정리가 필요한 원시 입력으로 추가 DTO를 만든다.
+        self.assertEqual("2026-08-01", create_request.date)  # DTO가 날짜 앞뒤 공백을 정리했는지 확인한다.
+        self.assertEqual("expense", create_request.transaction_type)  # DTO가 거래 타입을 소문자로 정리했는지 확인한다.
+        self.assertEqual(12000, create_request.amount)  # DTO가 문자열 금액을 정수로 바꿨는지 확인한다.
+        self.assertEqual(("meal", "work"), create_request.tags)  # DTO가 중복 태그를 제거하고 바꿀 수 없는 튜플로 만들었는지 확인한다.
+        with self.assertRaises(ValidationError):  # 날짜 범위가 거꾸로 된 검색 DTO가 오류를 내는지 확인할 문맥을 연다.
+            SearchTransactionsDTO(date_from="2026-08-31", date_to="2026-08-01")  # 종료일보다 늦은 시작일로 DTO 생성을 시도한다.
+        saved = self.service.add_transaction(create_request)  # 검증을 끝낸 DTO 한 개를 서비스에 전달해 저장한다.
+        with self.assertRaises(ValidationError):  # 아무 수정값도 없는 DTO를 서비스가 거부하는지 확인할 문맥을 연다.
+            self.service.update_transaction(UpdateTransactionDTO(saved.id))  # 거래 id만 있고 수정값은 없는 요청을 전달한다.
+
     def test_add_list_search_update_and_delete(self) -> None:  # 거래 CRUD와 모든 검색 조건을 한 흐름으로 검증한다.
-        first = self.service.add_transaction("2026-07-31", "expense", "food", "12000", "점심 식사", "meal,work")  # 첫 지출 거래를 저장한다.
-        second = self.service.add_transaction("2026-08-01", "income", "salary", 3000000, "8월 급여", "work")  # 두 번째 수입 거래를 저장한다.
+        first = self.service.add_transaction(CreateTransactionDTO("2026-07-31", "expense", "food", "12000", "점심 식사", "meal,work"))  # DTO로 묶은 첫 지출 거래를 저장한다.
+        second = self.service.add_transaction(CreateTransactionDTO("2026-08-01", "income", "salary", 3000000, "8월 급여", "work"))  # DTO로 묶은 두 번째 수입 거래를 저장한다.
         latest = list(self.service.list_transactions(1))  # 최신 거래 한 건만 제너레이터에서 꺼낸다.
         self.assertEqual(1, len(latest))  # 최신 거래 결과가 정확히 한 건인지 확인한다.
         self.assertEqual(second.id, latest[0].id)  # 나중에 저장한 거래가 가장 먼저 나오는지 확인한다.
         found = list(  # 모든 검색 조건을 동시에 적용한 결과를 목록으로 만든다.
-            self.service.search_transactions(  # 기간, 카테고리, 타입, 메모, 태그 검색을 실행한다.
-                date_from="2026-07-01",  # 검색 시작 날짜를 지정한다.
-                date_to="2026-07-31",  # 검색 종료 날짜를 지정한다.
-                category="food",  # food 카테고리만 찾는다.
-                transaction_type="expense",  # 지출만 찾는다.
-                query="점심",  # 메모에 점심이 포함된 거래만 찾는다.
-                tag="meal",  # meal 태그가 포함된 거래만 찾는다.
+            self.service.search_transactions(  # DTO로 묶은 기간, 카테고리, 타입, 메모, 태그 검색을 실행한다.
+                SearchTransactionsDTO(  # 여섯 검색 조건을 한 DTO로 만든다.
+                    date_from="2026-07-01",  # 검색 시작 날짜를 지정한다.
+                    date_to="2026-07-31",  # 검색 종료 날짜를 지정한다.
+                    category="food",  # food 카테고리만 찾는다.
+                    transaction_type="expense",  # 지출만 찾는다.
+                    query="점심",  # 메모에 점심이 포함된 거래만 찾는다.
+                    tag="meal",  # meal 태그가 포함된 거래만 찾는다.
+                )  # 검색 DTO 만들기를 끝낸다.
             )  # 검색 조건 전달을 끝낸다.
         )  # 검색 결과 목록 만들기를 끝낸다.
         self.assertEqual(1, len(found))  # 모든 조건을 만족한 검색 결과가 정확히 한 건인지 확인한다.
         self.assertEqual(first.id, found[0].id)  # 검색 결과가 예상한 첫 거래인지 확인한다.
-        updated = self.service.update_transaction(first.id, amount="15000", memo="점심 수정", tags="meal")  # 첫 거래의 일부 필드만 수정한다.
+        updated = self.service.update_transaction(UpdateTransactionDTO(first.id, amount="15000", memo="점심 수정", tags="meal"))  # DTO로 첫 거래의 일부 필드만 수정한다.
         self.assertEqual(15000, updated.amount)  # 수정한 금액이 새 값인지 확인한다.
         self.assertEqual("food", updated.category)  # 전달하지 않은 카테고리는 기존 값인지 확인한다.
         self.assertEqual("점심 수정", self.transactions.find_by_id(first.id).memo)  # 파일을 다시 읽어 수정된 메모가 영구 저장됐는지 확인한다.
@@ -70,19 +85,19 @@ class BudgetServiceTest(unittest.TestCase):  # 서비스와 파일 저장 기능
 
     def test_validation_rejects_bad_values(self) -> None:  # 날짜, 금액, 타입, 카테고리 입력 검증을 확인한다.
         with self.assertRaises(ValidationError):  # 존재하지 않는 날짜가 입력 오류가 되는지 확인할 문맥을 연다.
-            self.service.add_transaction("2026-02-30", "expense", "food", 1000)  # 2월 30일 거래 저장을 시도한다.
+            self.service.add_transaction(CreateTransactionDTO("2026-02-30", "expense", "food", 1000))  # 잘못된 날짜 DTO 생성을 시도한다.
         with self.assertRaises(ValidationError):  # 0원 거래가 입력 오류가 되는지 확인할 문맥을 연다.
-            self.service.add_transaction("2026-02-28", "expense", "food", 0)  # 0원 거래 저장을 시도한다.
+            self.service.add_transaction(CreateTransactionDTO("2026-02-28", "expense", "food", 0))  # 0원 거래 DTO 생성을 시도한다.
         with self.assertRaises(ValidationError):  # 허용되지 않은 타입이 입력 오류가 되는지 확인할 문맥을 연다.
-            self.service.add_transaction("2026-02-28", "gift", "food", 1000)  # gift 타입 거래 저장을 시도한다.
+            self.service.add_transaction(CreateTransactionDTO("2026-02-28", "gift", "food", 1000))  # gift 타입 거래 DTO 생성을 시도한다.
         with self.assertRaises(ValidationError):  # 등록되지 않은 카테고리가 입력 오류가 되는지 확인할 문맥을 연다.
-            self.service.add_transaction("2026-02-28", "expense", "unknown", 1000)  # unknown 카테고리 거래 저장을 시도한다.
+            self.service.add_transaction(CreateTransactionDTO("2026-02-28", "expense", "unknown", 1000))  # 미등록 카테고리 거래 DTO 저장을 시도한다.
         self.assertEqual([], list(self.transactions.iter_latest()))  # 잘못된 거래가 한 건도 파일에 저장되지 않았는지 확인한다.
 
     def test_summary_budget_and_category_protection(self) -> None:  # 월 요약, 예산 경고, 사용 중 카테고리 보호를 검증한다.
-        self.service.add_transaction("2026-08-01", "income", "salary", 1000000)  # 8월 수입을 저장한다.
-        self.service.add_transaction("2026-08-02", "expense", "food", 300000)  # 8월 food 지출을 저장한다.
-        self.service.add_transaction("2026-08-03", "expense", "rent", 500000)  # 8월 rent 지출을 저장한다.
+        self.service.add_transaction(CreateTransactionDTO("2026-08-01", "income", "salary", 1000000))  # DTO로 8월 수입을 저장한다.
+        self.service.add_transaction(CreateTransactionDTO("2026-08-02", "expense", "food", 300000))  # DTO로 8월 food 지출을 저장한다.
+        self.service.add_transaction(CreateTransactionDTO("2026-08-03", "expense", "rent", 500000))  # DTO로 8월 rent 지출을 저장한다.
         self.service.set_budget("2026-08", 700000)  # 지출보다 작은 8월 예산을 저장한다.
         summary = self.service.monthly_summary("2026-08", 2)  # 8월 지출 TOP 2를 포함한 요약을 계산한다.
         self.assertEqual(1000000, summary.total_income)  # 총수입 합계가 맞는지 확인한다.
@@ -363,7 +378,7 @@ class BudgetCliTest(unittest.TestCase):  # 실제 명령어 해석, 대화형 �
 
     def test_interactive_search_validation_and_optional_fields(self) -> None:  # 대화형 조건 검색의 실시간 검증과 생략 기능을 검증한다.
         service = BudgetService(TransactionRepository(self.data_dir), CategoryStore(self.data_dir), BudgetStore(self.data_dir))  # CLI 테스트 폴더에 서비스를 조립한다.
-        service.add_transaction("2026-08-10", "expense", "food", 15000, "점심식사", "meal")  # 테스트용 거래를 1건 추가한다.
+        service.add_transaction(CreateTransactionDTO("2026-08-10", "expense", "food", 15000, "점심식사", "meal"))  # DTO로 테스트용 거래를 1건 추가한다.
         console_inputs = [  # 대화형 콘솔에서 조건 검색을 수행할 입력 목록이다.
             "3",  # 메인 메뉴에서 3번(조건별 거래 검색)을 선택한다.
             "2026-99-99",  # 잘못된 시작 날짜를 입력하여 에러를 유발한다.
@@ -425,7 +440,7 @@ class BudgetCliTest(unittest.TestCase):  # 실제 명령어 해석, 대화형 �
 
     def test_interactive_menu_update_shows_latest_transactions(self) -> None:  # 대화형 메뉴 4번 거래 수정 선택 시 최근 10개 거래가 먼저 출력되는지 검증한다.
         service = BudgetService(TransactionRepository(self.data_dir), CategoryStore(self.data_dir), BudgetStore(self.data_dir))  # CLI 테스트 저장소로 서비스를 조립한다.
-        tx = service.add_transaction("2026-08-01", "expense", "food", 12000, "점심식사", "meal")  # 테스트용 거래 한 건을 미리 추가한다.
+        tx = service.add_transaction(CreateTransactionDTO("2026-08-01", "expense", "food", 12000, "점심식사", "meal"))  # DTO로 테스트용 거래 한 건을 미리 추가한다.
         console_inputs = [  # 대화형 콘솔에서 메뉴 4번을 선택하고 수정 후 종료할 입력들이다.
             "4",  # 메인 메뉴에서 4번(거래 수정)을 선택한다.
             tx.id,  # 출력된 목록을 보고 수정할 거래 id를 입력한다.
@@ -448,7 +463,7 @@ class BudgetCliTest(unittest.TestCase):  # 실제 명령어 해석, 대화형 �
 
     def test_interactive_menu_delete_shows_latest_transactions(self) -> None:  # 대화형 메뉴 5번 거래 삭제 선택 시 최근 10개 거래가 먼저 출력되는지 검증한다.
         service = BudgetService(TransactionRepository(self.data_dir), CategoryStore(self.data_dir), BudgetStore(self.data_dir))  # CLI 테스트 저장소로 서비스를 조립한다.
-        tx = service.add_transaction("2026-08-01", "expense", "food", 12000, "점심식사", "meal")  # 테스트용 거래 한 건을 미리 추가한다.
+        tx = service.add_transaction(CreateTransactionDTO("2026-08-01", "expense", "food", 12000, "점심식사", "meal"))  # DTO로 테스트용 거래 한 건을 미리 추가한다.
         console_inputs = [  # 대화형 콘솔에서 메뉴 5번을 선택하고 삭제 후 종료할 입력들이다.
             "5",  # 메인 메뉴에서 5번(거래 삭제)을 선택한다.
             tx.id,  # 출력된 목록을 보고 삭제할 거래 id를 입력한다.
@@ -493,7 +508,7 @@ class BudgetCliTest(unittest.TestCase):  # 실제 명령어 해석, 대화형 �
 
     def test_interactive_summary_immediate_validation(self) -> None:  # 월별 요약 및 예산 현황(6번)에서 대상 월의 실시간 검증을 테스트한다.
         service = BudgetService(TransactionRepository(self.data_dir), CategoryStore(self.data_dir), BudgetStore(self.data_dir))  # CLI 테스트 저장소로 서비스를 조립한다.
-        service.add_transaction("2026-08-15", "expense", "food", 15000, "점심식사", "meal")  # 8월 테스트용 거래를 1건 추가한다.
+        service.add_transaction(CreateTransactionDTO("2026-08-15", "expense", "food", 15000, "점심식사", "meal"))  # DTO로 8월 테스트용 거래를 1건 추가한다.
         console_inputs = [  # 대화형 콘솔에서 6번 월별 요약을 실행하는 입력 목록이다.
             "6",  # 메인 메뉴에서 6번(월별 요약 및 예산 현황)을 선택한다.
             "2026-99",  # 존재하지 않는 잘못된 월을 입력해 오류를 유발한다.
@@ -514,7 +529,7 @@ class BudgetCliTest(unittest.TestCase):  # 실제 명령어 해석, 대화형 �
 
     def test_interactive_csv_export_validation(self) -> None:  # 대화형 CSV 내보내기(9번)의 파일 경로 및 대상 월 실시간 검증을 테스트한다.
         service = BudgetService(TransactionRepository(self.data_dir), CategoryStore(self.data_dir), BudgetStore(self.data_dir))  # CLI 테스트 저장소로 서비스를 조립한다.
-        service.add_transaction("2026-08-10", "expense", "food", 15000, "점심식사", "meal")  # 8월 테스트용 거래를 1건 추가한다.
+        service.add_transaction(CreateTransactionDTO("2026-08-10", "expense", "food", 15000, "점심식사", "meal"))  # DTO로 8월 테스트용 거래를 1건 추가한다.
         out_csv_path = self.data_dir / "valid_export.csv"  # 정상 출력할 CSV 파일 경로다.
         console_inputs = [  # 대화형 콘솔에서 9번 CSV 내보내기를 실행하는 입력 목록이다.
             "9",  # 메인 메뉴에서 9번(CSV 파일 처리)을 선택한다.
@@ -537,7 +552,7 @@ class BudgetCliTest(unittest.TestCase):  # 실제 명령어 해석, 대화형 �
 
     def test_interactive_csv_export_default_filename_on_enter(self) -> None:  # 대화형 CSV 내보내기에서 엔터 입력 시 기본 파일명이 자동 생성되는지 검증한다.
         service = BudgetService(TransactionRepository(self.data_dir), CategoryStore(self.data_dir), BudgetStore(self.data_dir))  # CLI 테스트 저장소로 서비스를 조립한다.
-        service.add_transaction("2026-07-20", "income", "salary", 3000000, "월급", "bonus")  # 7월 테스트용 거래를 1건 추가한다.
+        service.add_transaction(CreateTransactionDTO("2026-07-20", "income", "salary", 3000000, "월급", "bonus"))  # DTO로 7월 테스트용 거래를 1건 추가한다.
         expected_csv_path = self.data_dir / "export_2026-07.csv"  # 엔터 입력 시 자동 생성되어야 할 대상 파일 경로다.
         console_inputs = [  # 대화형 콘솔에서 엔터로 기본 파일명을 자동 생성하는 입력 목록이다.
             "9",  # 메인 메뉴에서 9번(CSV 파일 처리)을 선택한다.

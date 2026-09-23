@@ -289,6 +289,7 @@ uv run python -m budget_app export --out ./export-range.csv --from 2026-08-01 --
 | `budget_app/__main__.py` | `uv run python -m budget_app` 프로그램 실행 진입점 |  
 | `budget_app/constants/` | 카테고리, 날짜규칙, 저장소 파일명(`repository_files`), 화면제한(`view_limits`), 에러메시지 보관 패키지 |  
 | `budget_app/models.py` | `Transaction`, `MonthlySummary` 데이터 구조 |  
+| `budget_app/dtos.py` | CLI와 서비스 사이의 거래 추가·검색·수정 데이터 전달 및 형식 검증 |
 | `budget_app/validators.py` | 날짜·월·금액·타입·카테고리·태그 검증 |  
 | `budget_app/repositories.py` | JSONL 스트리밍, 추가, 임시 파일, 원자적 교체 |  
 | `budget_app/services.py` | CRUD, 검색, 요약, 예산, 카테고리, CSV 업무 규칙 |  

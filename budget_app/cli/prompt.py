@@ -5,6 +5,7 @@ from typing import Callable, Optional  # 함수 타입과 값이 없을 수도 �
 from budget_app.cli.output import print_error  # CLI 전용 오류와 힌트 출력 도구를 가져온다.
 from budget_app.cli.views import print_transaction  # 거래 한 줄 출력 뷰 함수를 가져온다.
 from budget_app.constants import DEFAULT_LIST_LIMIT, ErrorMessages  # 기본 목록 개수 상수와 오류 메시지 클래스를 가져온다.
+from budget_app.dtos import UpdateTransactionDTO  # 여러 거래 수정 입력값을 하나로 묶을 DTO를 가져온다.
 from budget_app.exceptions import NotFoundError, ValidationError  # 입력 오류와 데이터 없음 오류를 다루기 위해 가져온다.
 from budget_app.models import Transaction  # 수정 결과로 돌려줄 거래 데이터 클래스를 가져온다.
 from budget_app.services import BudgetService  # 카테고리 확인 및 거래 수정을 호출할 서비스 객체 타입이다.
@@ -74,7 +75,7 @@ def prompt_update_interactive(service: BudgetService, transaction_id: Optional[s
     updated_memo = memo_input if memo_input.strip() else (None if memo_input == "" else "")  # 메모 변경 여부를 결정한다.
     updated_tags = tags_input if tags_input.strip() else (None if tags_input == "" else "")  # 태그 변경 여부를 결정한다.
 
-    return service.update_transaction(  # 결정된 값들을 서비스에 전달하여 실제로 파일 내용을 수정하고 결과를 돌려준다.
+    request = UpdateTransactionDTO(  # 결정된 수정 값들을 검증된 DTO 한 개로 묶는다.
         transaction_id=target_id,  # 대상 거래 id다.
         date=updated_date,  # 수정할 날짜다.
         transaction_type=updated_type,  # 수정할 타입이다.
@@ -82,4 +83,5 @@ def prompt_update_interactive(service: BudgetService, transaction_id: Optional[s
         amount=updated_amount,  # 수정할 금액이다.
         memo=updated_memo,  # 수정할 메모다.
         tags=updated_tags,  # 수정할 태그다.
-    )  # 거래 수정 호출을 마친다.
+    )  # 거래 수정 DTO 만들기를 끝낸다.
+    return service.update_transaction(request)  # DTO를 서비스에 전달하여 파일 내용을 수정하고 결과를 돌려준다.

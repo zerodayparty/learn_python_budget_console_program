@@ -17,6 +17,7 @@ from budget_app.cli.views import (  # 화면에 데이터를 꾸며서 보여주
     print_transaction,  # 거래 한 줄 출력 함수다.
 )  # 뷰 함수 가져오기를 마친다.
 from budget_app.constants import DEFAULT_LIST_LIMIT, DEFAULT_SUMMARY_TOP, ErrorMessages  # 기본 출력 개수와 에러 메시지 상수를 가져온다.
+from budget_app.dtos import CreateTransactionDTO, SearchTransactionsDTO  # 대화형 입력을 서비스에 전달할 DTO들을 가져온다.
 from budget_app.exceptions import ConflictError, NotFoundError, ValidationError  # 대화형 메뉴에서 잡을 비즈니스 에러들을 가져온다.
 from budget_app.repositories import BudgetStore, CategoryStore, TransactionRepository  # 저장 파일 3개를 다루는 저장소들을 가져온다.
 from budget_app.services import BudgetService  # 가계부 핵심 계산 및 저장 규칙을 실행할 서비스를 가져온다.
@@ -71,7 +72,8 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
                 amount = prompt_until_valid("금액(양의 정수): ", validate_amount)  # 금액을 대화형으로 받는다.
                 memo = input("메모(선택): ")  # 메모를 대화형으로 받는다.
                 tags = input("태그(쉼표로 구분, 선택): ")  # 태그를 대화형으로 받는다.
-                tx = service.add_transaction(date, transaction_type, category, amount, memo, tags)  # 거래를 서비스에 저장한다.
+                request = CreateTransactionDTO(date, transaction_type, category, amount, memo, tags)  # 여섯 입력값을 검증된 거래 추가 DTO 한 개로 묶는다.
+                tx = service.add_transaction(request)  # 거래 추가 DTO를 서비스에 전달해 저장한다.
                 print(f"[저장 완료] id={tx.id}")  # 성공 메시지와 거래 고유 id를 출력한다.
 
             elif choice == "2":  # 2번 거래 목록 조회를 선택한 경우다.
@@ -112,8 +114,9 @@ def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 �
                 q_memo = str(raw_memo) if raw_memo is not None else None  # 문자열 또는 None으로 정제한다.
                 raw_tag = prompt_optional_valid("포함 태그: ", _validate_tag)  # 포함 태그를 검사하며 받는다.
                 q_tag = str(raw_tag) if raw_tag is not None else None  # 문자열 또는 None으로 정제한다.
+                criteria = SearchTransactionsDTO(date_from=q_date_from, date_to=q_date_to, category=q_category, transaction_type=q_type, query=q_memo, tag=q_tag)  # 여섯 검색 조건을 DTO 한 개로 묶는다.
                 found = False  # 검색 결과 여부 플래그를 준비한다.
-                for tx in service.search_transactions(date_from=q_date_from, date_to=q_date_to, category=q_category, transaction_type=q_type, query=q_memo, tag=q_tag):  # 검색 제너레이터를 순회한다.
+                for tx in service.search_transactions(criteria):  # DTO 조건과 맞는 검색 결과 제너레이터를 순회한다.
                     found = True  # 검색 결과가 있음을 표시한다.
                     print_transaction(tx)  # 거래를 출력한다.
                 if not found:  # 검색 결과가 없는지 확인한다.
