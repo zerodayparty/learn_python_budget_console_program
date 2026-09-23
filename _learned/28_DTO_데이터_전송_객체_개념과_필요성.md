@@ -28,8 +28,8 @@
 | :--- | :--- | :--- |
 | CLI | 키보드와 명령줄 값을 받고 DTO를 만듦 | `budget_app/cli/app.py`, `budget_app/cli/interactive.py`, `budget_app/cli/prompt.py` |  
 | DTO | 여러 입력을 한 객체로 묶고 형식을 검증·정리 | `budget_app/dtos.py` |  
-| Service | 등록 카테고리, 거래 존재, 저장 같은 업무 규칙 처리 | `budget_app/services.py` |  
-| Repository | JSONL 파일 읽기와 쓰기 | `budget_app/repositories.py` |  
+| Service | 등록 카테고리, 거래 존재, 저장 같은 업무 규칙 처리 | `budget_app/services/` |
+| Repository | JSONL 파일 읽기와 쓰기 | `budget_app/repositories/` |
 
 <br><br>
 
@@ -39,7 +39,7 @@
 | :--- | :--- | :--- | :--- |
 | CLI 입력 수신 | CLI가 날짜, 타입, 카테고리, 금액, 메모, 태그를 각각의 변수로 받았다. | CLI가 각 값을 받은 뒤 목적에 맞는 DTO 객체를 만든다. | 서비스로 넘기기 전에 관련 값을 하나의 요청으로 묶기 위해서다. |  
 | Service 호출 방식 | `add_transaction(date, type, category, amount, memo, tags)`처럼 6~7개 값을 낱개로 전달했다. | `add_transaction(request)`처럼 DTO 하나를 전달한다. | 인자 순서 실수와 긴 매개변수 목록을 없애기 위해서다. |  
-| 입력 형식 검증 | Service 메서드가 `validate_date()`, `validate_amount()` 등을 직접 호출했다. | DTO가 생성될 때 `validators.py`의 함수를 사용해 입력 형식을 검증한다. | Service가 입력 문자열 정리보다 업무 규칙에 집중하게 하기 위해서다. |  
+| 입력 형식 검증 | Service 메서드가 `validate_date()`, `validate_amount()` 등을 직접 호출했다. | DTO가 생성될 때 `validators/`의 함수를 사용해 입력 형식을 검증한다. | Service가 입력 문자열 정리보다 업무 규칙에 집중하게 하기 위해서다. |
 | 입력값 정리 | Service가 공백 제거, 금액 정수 변환, 태그 중복 제거를 담당했다. | DTO가 공백을 제거하고 금액과 태그를 정규화한다. | Service가 정리된 값만 받도록 보장하기 위해서다. |  
 | 업무 규칙 검증 | 입력 형식 검증과 업무 규칙 검증이 Service에 섞여 있었다. | 등록된 카테고리인지, 거래가 존재하는지 같은 업무 규칙만 Service가 검사한다. | 입력 형식과 프로그램 업무 규칙은 서로 다른 책임이기 때문이다. |  
 | 거래 검색 | Service 메서드가 선택 값 검증과 여섯 개의 검색 조건 비교를 모두 담당했다. | `SearchTransactionsDTO`가 조건을 검증·보관하고, Service의 `_matches_search()`가 거래와 조건을 비교한다. | 검색 조건 데이터와 검색 판단 로직을 구분하기 위해서다. |  
@@ -60,7 +60,7 @@
 | :--- | :--- | :--- |
 | 1 | CLI가 여러 입력값을 받는다. | CLI가 여러 입력값을 받는다. |  
 | 2 | CLI가 6~7개 값을 Service에 바로 넘긴다. | CLI가 목적에 맞는 DTO를 만든다. |  
-| 3 | Service가 각 값의 형식을 검증하고 정리한다. | DTO가 `validators.py`를 사용해 각 값을 검증하고 정리한다. |  
+| 3 | Service가 각 값의 형식을 검증하고 정리한다. | DTO가 `validators/`를 사용해 각 값을 검증하고 정리한다. |
 | 4 | Service가 업무 규칙을 검증한다. | CLI가 완성된 DTO 하나를 Service에 넘긴다. |  
 | 5 | Service가 `Transaction`을 만든다. | Service가 DTO의 값으로 업무 규칙을 검증한다. |  
 | 6 | Service가 Repository에 저장을 요청한다. | Service가 `Transaction`을 만든다. |  
@@ -98,7 +98,7 @@
 
 | 검증 종류 | 예시 | 담당 |  
 | :--- | :--- | :--- |
-| 입력 형식 검증 | 날짜 형식, 양의 정수 금액, 허용된 타입 | DTO와 `validators.py` |  
+| 입력 형식 검증 | 날짜 형식, 양의 정수 금액, 허용된 타입 | DTO와 `validators/` |
 | 업무 규칙 검증 | 실제 등록된 카테고리인지, 수정할 거래가 존재하는지 | Service |  
 | 저장 규칙 | JSONL 추가, 교체, 삭제 | Repository |  
 

@@ -1,4 +1,4 @@
-# 🟩 파일 뒤에서부터 거꾸로 읽기(_iter_lines_reverse) 동작 원리
+# 🟩 파일 뒤에서부터 거꾸로 읽기(iter_lines_reverse) 동작 원리
 
 ## 🟢 주요 영단어 및 명령어 풀네임 정리
 
@@ -42,7 +42,7 @@
 - 100만 줄이든 1000만 줄이든 상관없이 **0.001초**만에 최신 거래를 표시함.
 - 메모리도 딱 8192 byte(8KB)만 사용하므로 컴퓨터 자원을 거의 쓰지 않음.
 
-| 구분 | 앞에서부터 읽기 (`iter_oldest`) | 뒤에서부터 읽기 (`_iter_lines_reverse`) |
+| 구분 | 앞에서부터 읽기 (`iter_oldest`) | 뒤에서부터 읽기 (`iter_lines_reverse`) |
 | :--- | :--- | :--- |
 | 읽기 시작 위치 | 파일 맨 앞 (0 byte) | 파일 맨 끝 (End Of File) |
 | 읽는 방향 | 과거 데이터 $\rightarrow$ 최신 데이터 | 최신 데이터 $\rightarrow$ 과거 데이터 |
@@ -157,7 +157,7 @@
 
 ```python
 # 파일 경로와 한 번에 읽을 블록 크기(기본값 8192 byte)를 받아 역순으로 한 줄씩 전달하는 제너레이터 함수를 정의한다.
-def _iter_lines_reverse(path: Path, block_size: int = 8192) -> Iterator[str]:  
+def iter_lines_reverse(path: Path, block_size: int = 8192) -> Iterator[str]:
     # byte 단위로 바늘을 자유롭게 이동시키기 위해 이진 읽기(Read Binary) 모드로 파일을 연다.
     with path.open("rb") as data_file:  
         # 파일 읽기 바늘을 파일의 맨 끝(os.SEEK_END)으로 단번에 이동시킨다.

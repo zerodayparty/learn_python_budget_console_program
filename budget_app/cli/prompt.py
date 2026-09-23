@@ -53,7 +53,7 @@ def prompt_update_interactive(service: BudgetService, transaction_id: Optional[s
             print("❌ ⚠️ 거래 데이터 없음")  # 거래 데이터 없음 안내 문구를 출력한다.
         target_id = input("수정할 거래 id: ").strip()  # 사용자에게 직접 수정할 거래 id를 입력받는다.
 
-    found = service.transactions.find_by_id(target_id)  # 저장소에서 해당 id를 가진 거래가 있는지 찾아본다.
+    found = service.get_transaction(target_id)  # 서비스를 통해 해당 id를 가진 거래가 있는지 찾아본다.
     if found is None:  # 찾으려는 거래가 저장 파일에 없는 경우다.
         raise NotFoundError(*ErrorMessages.prompt_transaction_not_found(target_id))  # 거래 없음 오류를 발생시킨다.
 

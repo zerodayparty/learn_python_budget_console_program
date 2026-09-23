@@ -3,6 +3,7 @@
 from pathlib import Path  # 가계부 데이터가 저장된 폴더 경로를 다루기 위해 가져온다.
 from typing import Optional  # 값이 없거나(None) 있을 수 있는 타입을 표시하기 위해 가져온다.
 
+from budget_app.bootstrap import build_service  # 저장소와 세부 서비스를 한 번에 조립하는 함수를 가져온다.
 from budget_app.cli.output import print_error, print_section_title  # CLI 전용 표준 출력 도구들을 가져온다.
 from budget_app.cli.prompt import (  # 사용자 대화형 입력을 유도하는 함수들을 가져온다.
     prompt_optional_valid,  # 생략 가능한 입력값 검증 도우미 함수다.
@@ -19,8 +20,6 @@ from budget_app.cli.views import (  # 화면에 데이터를 꾸며서 보여주
 from budget_app.constants import DEFAULT_LIST_LIMIT, DEFAULT_SUMMARY_TOP, ErrorMessages  # 기본 출력 개수와 에러 메시지 상수를 가져온다.
 from budget_app.dtos import CreateTransactionDTO, SearchTransactionsDTO  # 대화형 입력을 서비스에 전달할 DTO들을 가져온다.
 from budget_app.exceptions import ConflictError, NotFoundError, ValidationError  # 대화형 메뉴에서 잡을 비즈니스 에러들을 가져온다.
-from budget_app.repositories import BudgetStore, CategoryStore, TransactionRepository  # 저장 파일 3개를 다루는 저장소들을 가져온다.
-from budget_app.services import BudgetService  # 가계부 핵심 계산 및 저장 규칙을 실행할 서비스를 가져온다.
 from budget_app.validators import (  # 입력값 검증 함수들을 가져온다.
     validate_amount,  # 금액 검증 함수다.
     validate_category_name,  # 카테고리 이름 검증 함수다.
@@ -35,15 +34,8 @@ from budget_app.validators import (  # 입력값 검증 함수들을 가져온�
 )  # 검증 함수 가져오기를 마친다.
 
 
-def _build_service(data_dir: Path) -> BudgetService:  # 지정된 데이터 폴더의 저장소들을 조립해 서비스 객체를 만든다.
-    transactions = TransactionRepository(data_dir)  # transactions.jsonl 파일 저장소를 준비한다.
-    categories = CategoryStore(data_dir)  # categories.jsonl 파일 저장소를 준비한다.
-    budgets = BudgetStore(data_dir)  # budgets.jsonl 파일 저장소를 준비한다.
-    return BudgetService(transactions, categories, budgets)  # 세 저장소를 연결한 서비스 객체를 돌려준다.
-
-
 def run_interactive_console(data_dir: Path) -> int:  # 사용자가 메뉴를 선택하며 계속 작업하는 대화형 콘솔을 실행한다.
-    service = _build_service(data_dir)  # 지정된 데이터 폴더로 세 파일과 서비스를 초기화한다.
+    service = build_service(data_dir)  # 지정된 데이터 폴더로 저장소와 세부 서비스를 초기화한다.
 
     print_interactive_header()  # views 모듈에서 대화형 모드 환영 배너를 화면에 출력한다.
 

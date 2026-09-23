@@ -86,7 +86,7 @@ print(결과2)  # 출력: [b'na', b'Cherry', b'']
 
 <br><br>
 
-## 🟢 repositories.py 에서는 이 b""를 어떻게 처리하는가?
+## 🟢 repositories/jsonl_storage.py 에서는 이 b""를 어떻게 처리하는가?
 
 쓸모없는 찌꺼기인 `b""`가 출력되면 안 되므로, 코드에서 **2중 방어벽**으로 걸러냄.
 

@@ -5,6 +5,7 @@ import sys  # sys는 명령줄 인자 목록을 직접 확인하기 위해 가�
 from pathlib import Path  # Path는 사용자가 입력한 파일과 폴더 경로를 다루는 도구다.
 from typing import Callable, List, Optional  # 함수의 입력과 출력 자료형을 표시한다.
 
+from budget_app.bootstrap import build_service  # 저장소와 세부 서비스를 한 번에 조립하는 함수를 가져온다.
 from budget_app.cli.decorators import handle_cli_errors  # CLI 전용 공통 오류 처리 데코레이터를 가져온다.
 from budget_app.cli.interactive import run_interactive_console  # 대화형 콘솔 메뉴 실행 함수를 가져온다.
 from budget_app.cli.output import (  # 화면 출력 도구들을 가져온다.
@@ -33,8 +34,6 @@ from budget_app.constants import (  # 공통 상수 모듈에서 기본 폴더�
 from budget_app.dtos import CreateTransactionDTO, SearchTransactionsDTO, UpdateTransactionDTO  # CLI 입력을 서비스에 전달할 DTO들을 가져온다.
 from budget_app.exceptions import ConflictError, NotFoundError, ValidationError  # 대화형 입력에서 오류를 보여 주고 다시 받을 때 사용한다.
 from budget_app.models import MonthlySummary, Transaction  # 거래와 요약을 화면 형식으로 출력하기 위해 가져온다.
-from budget_app.repositories import BudgetStore, CategoryStore, TransactionRepository  # 세 저장 파일을 준비할 저장소다.
-from budget_app.services import BudgetService  # 실제 가계부 업무 규칙을 실행할 서비스다.
 from budget_app.validators import validate_amount, validate_date, validate_transaction_type  # 대화형 입력을 즉시 검사할 함수다.
 
 
@@ -46,16 +45,9 @@ _print_transaction = print_transaction  # 거래 한 줄 출력 뷰 함수다.
 _print_summary = print_summary  # 월별 요약 통계 출력 뷰 함수다.
 
 
-def _build_service(data_dir: Path) -> BudgetService:  # 한 저장 폴더를 사용하는 서비스 객체를 만든다.
-    transactions = TransactionRepository(data_dir)  # transactions.jsonl 파일을 만들고 거래 저장소를 준비한다.
-    categories = CategoryStore(data_dir)  # categories.jsonl과 기본 카테고리를 준비한다.
-    budgets = BudgetStore(data_dir)  # budgets.jsonl 파일을 만들고 예산 저장소를 준비한다.
-    return BudgetService(transactions, categories, budgets)  # 세 저장소를 연결한 서비스 객체를 돌려준다.
-
-
 @handle_cli_errors  # 예상치 못한 오류가 터져도 스택트레이스를 감추고 [오류], [힌트]를 출력한다.
 def execute(args: argparse.Namespace) -> int:  # argparse가 해석한 명령 한 개를 실행한다.
-    service = _build_service(Path(args.data_dir))  # 사용자가 지정한 데이터 폴더로 세 저장소와 서비스를 준비한다.
+    service = build_service(Path(args.data_dir))  # 사용자가 지정한 데이터 폴더로 저장소와 세부 서비스를 준비한다.
 
     if args.command == "add":  # 사용자가 add 명령을 선택했는지 확인한다.
         date = str(_prompt_until_valid("날짜(YYYY-MM-DD): ", validate_date))  # 검사를 통과할 때까지 날짜 입력을 받는다.

@@ -42,10 +42,10 @@
 
 <br><br>
 
-## 🟢 왜 repositories.py에서는 "" 대신 b""를 썼는가?
+## 🟢 왜 repositories/jsonl_storage.py에서는 "" 대신 b""를 썼는가?
 
 ### 🟡 1. open("rb") 로 파일을 열었기 때문
-- `repositories.py`의 62번째 줄을 보면 파일을 다음과 같이 열었음:
+- `repositories/jsonl_storage.py`의 51번째 줄을 보면 파일을 다음과 같이 열었음:
     - `with path.open("rb") as data_file:`
 - `"rb"`는 **Read Binary(이진 읽기)**의 약자임.
 - 컴퓨터 하드디스크에서 번역(UTF-8 디코딩)을 거치지 않고, 0과 1의 숫자 묶음인 **`bytes` 형태로 원시 데이터를 그대로 퍼 올림**.
@@ -73,9 +73,9 @@
 <br><br>
 
 ### 🟡 3. remaining 변수의 초기값 역할
-- `repositories.py` 65번째 줄:
+- `repositories/jsonl_storage.py` 54번째 줄:
     - `remaining = b""`
-- `remaining`은 나중에 72번째 줄에서 새로 읽어온 블록과 합쳐져야 함:
+- `remaining`은 나중에 59번째 줄에서 새로 읽어온 블록과 합쳐져야 함:
     - `block = data_file.read(read_size) + remaining`
 - `data_file.read()`가 `bytes`를 반환하므로, 뒤에 붙일 `remaining`도 **반드시 `bytes` 자료형**이어야 에러 없이 더하기가 성립함.
 - 첫 번째 반복에서는 아직 잘린 조각이 없으므로, **"아무것도 없는 빈 바이트(`b""`)"**를 넣어둔 것임.
